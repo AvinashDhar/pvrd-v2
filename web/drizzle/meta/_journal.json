@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1794545650413,
+      "tag": "0000_majestic_gamma_corps",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1794547891141,
+      "tag": "0001_careless_nomad",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794548486193,
+      "tag": "0002_cultured_malcolm_colcord",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1794549910762,
+      "tag": "0003_banner_links",
+      "breakpoints": true
+    }
+  ]
+}
