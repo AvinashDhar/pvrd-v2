@@ -38,6 +38,9 @@ yarn-error.log*
 /public/uploads/*
 !/public/uploads/.gitkeep
 
+# generated catalogue PDFs when R2 is not configured
+/storage/
+
 # vercel
 .vercel
 

@@ -16,16 +16,16 @@ export async function SiteFooter() {
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.4fr_0.8fr_0.8fr] lg:px-8">
         <div>
           <PvrdLogo inverted size={44} />
-          <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-4 max-w-sm text-base leading-relaxed text-muted-foreground">
             {settings.tagline} for retailers, contractors and homeowners. Browse fittings, download PDFs and send inquiries in minutes.
           </p>
         </div>
         <div>
           <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Explore</p>
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="mt-3 text-base">
             {links.map((link) => (
               <li key={link.href}>
-                <Link href={link.href} className="text-muted-foreground transition-colors hover:text-primary">
+                <Link href={link.href} className="inline-flex min-h-11 items-center text-muted-foreground transition-colors hover:text-primary">
                   {link.label}
                 </Link>
               </li>
@@ -34,10 +34,27 @@ export async function SiteFooter() {
         </div>
         <div>
           <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Contact</p>
-          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-            <li>{settings.phone}</li>
-            <li>{settings.email}</li>
-            <li>{settings.address}</li>
+          <ul className="mt-3 text-base text-muted-foreground">
+            <li>Om Plywood Emporium</li>
+            {settings.address ? (
+              <li>
+                <a
+                  href="https://share.google/W15llBup8C0t9R62u"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-11 items-center py-2 transition-colors hover:text-primary"
+                >
+                  {settings.address}
+                </a>
+              </li>
+            ) : null}
+            {settings.phone ? (
+              <li>
+                <a href={`tel:+91${settings.phone.replace(/\D/g, "").replace(/^0/, "")}`} className="inline-flex min-h-11 items-center transition-colors hover:text-primary">
+                  {settings.phone}
+                </a>
+              </li>
+            ) : null}
           </ul>
         </div>
       </div>

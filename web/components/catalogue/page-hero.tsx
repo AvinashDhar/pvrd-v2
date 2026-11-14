@@ -17,11 +17,11 @@ export function PageHero({
   return (
     <div className={cn("max-w-2xl", className)}>
       <p className="pvrd-kicker">{eyebrow}</p>
-      <h1 className="mt-2 font-heading text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
+      <h1 className="mt-2 font-heading text-[1.75rem] leading-tight font-semibold tracking-tight text-primary sm:text-4xl">
         {title}
       </h1>
       {description ? (
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+        <p className="mt-3 text-base leading-relaxed text-muted-foreground">
           {description}
         </p>
       ) : null}

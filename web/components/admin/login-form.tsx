@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,7 +37,7 @@ export function LoginForm() {
         </div>
       </section>
       <section className="flex items-center justify-center bg-background p-4 sm:p-6">
-        <form className="pvrd-card w-full max-w-md space-y-4 p-5 sm:p-7" action={action}>
+        <ActionForm className="pvrd-card w-full max-w-md space-y-4 p-5 sm:p-7" action={action} state={state}>
           <div className="lg:hidden">
             <PvrdLogo inverted className="mb-4" />
           </div>
@@ -46,13 +47,15 @@ export function LoginForm() {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" autoComplete="username" required />
+            <Input id="email" name="email" type="email" autoComplete="username" required maxLength={255} {...invalidProps(state, "email")} />
+            <FieldIssue state={state} name="email" />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" autoComplete="current-password" required />
+            <Input id="password" name="password" type="password" autoComplete="current-password" required maxLength={128} {...invalidProps(state, "password")} />
+            <FieldIssue state={state} name="password" />
           </div>
-          {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+          <FormBanner state={state} />
           <Button type="submit" className="w-full" size="lg" disabled={pending}>
             {pending ? "Signing in…" : "Enter admin panel"}
           </Button>
@@ -62,7 +65,7 @@ export function LoginForm() {
               Sign in here
             </Link>
           </p>
-        </form>
+        </ActionForm>
       </section>
     </div>
   );

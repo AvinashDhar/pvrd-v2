@@ -2,7 +2,9 @@ import Link from "next/link";
 import { ArrowRight, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { listPublicBanners } from "@/lib/banners/queries";
+import { getUserSession } from "@/lib/auth/session";
 import { publicBrands, publicCategories, publicProducts } from "@/lib/catalogue";
+import { isTradeAccount } from "@/lib/pricing";
 import { formatDate } from "@/lib/format";
 import { listOfferRows, offerIsCurrent } from "@/lib/records";
 import { SiteShell } from "@/components/catalogue/site-shell";
@@ -11,13 +13,15 @@ import { CategoryCard } from "@/components/catalogue/category-card";
 import { MediaImage } from "@/components/catalogue/media-image";
 
 export default async function HomePage() {
-  const [liveHero, categories, products, brands, offers] = await Promise.all([
+  const [liveHero, categories, products, brands, offers, account] = await Promise.all([
     listPublicBanners("homepage").then((rows) => rows[0] ?? null),
     publicCategories(),
     publicProducts(),
     publicBrands(),
     listOfferRows(),
+    getUserSession(),
   ]);
+  const trade = isTradeAccount(account?.userType);
   const hero = liveHero
     ? {
         image: liveHero.imageUrl,
@@ -57,7 +61,7 @@ export default async function HomePage() {
               <h1 className="mt-3 max-w-xl font-heading text-[2.1rem] leading-[1.12] font-semibold tracking-tight text-white sm:text-5xl">
                 {hero.title}
               </h1>
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
+              <p className="mt-3 max-w-md text-base leading-relaxed text-white/80">
                 {hero.text}
               </p>
               <form action="/products" method="get" className="relative mt-6 max-w-md">
@@ -66,7 +70,7 @@ export default async function HomePage() {
                   type="search"
                   name="q"
                   placeholder="Search fittings…"
-                  className="h-12 w-full rounded-full border border-white/15 bg-white/12 pr-4 pl-11 text-sm text-white outline-none backdrop-blur-md placeholder:text-white/60 focus:border-lime focus:ring-3 focus:ring-lime/35"
+                  className="h-12 w-full rounded-full border border-white/15 bg-white/12 pr-4 pl-11 text-base text-white outline-none backdrop-blur-md placeholder:text-white/60 focus:border-lime focus:ring-3 focus:ring-lime/35"
                 />
               </form>
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -93,14 +97,14 @@ export default async function HomePage() {
         </section>
 
         <section className="border-b border-[#003c6c]/8 bg-white/60">
-          <div className="pvrd-page !py-12">
+          <div className="pvrd-page !py-8 sm:!py-12">
             <SectionHeading
               kicker="Collections"
               title="Shop by category"
               href="/categories"
               action="View all"
             />
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
               {shopCategories.map((category) => (
                 <CategoryCard
                   key={category.id}
@@ -121,9 +125,9 @@ export default async function HomePage() {
             href="/products"
             action="All products"
           />
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             {featured.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} trade={trade} />
             ))}
           </div>
         </section>
@@ -212,7 +216,7 @@ function SectionHeading({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="pvrd-kicker">{kicker}</p>
-        <h2 className="mt-2 font-heading text-2xl font-semibold text-primary sm:text-3xl">{title}</h2>
+        <h2 className="mt-2 font-heading text-xl font-semibold text-primary sm:text-3xl">{title}</h2>
       </div>
       {href && action ? (
         <Button variant="ghost" render={<Link href={href} />} className="self-start sm:self-auto">

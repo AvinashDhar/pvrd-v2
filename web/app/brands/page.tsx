@@ -13,7 +13,7 @@ export default async function PublicBrandsPage() {
       {brands.length === 0 ? (
         <p className="mt-8 text-sm text-muted-foreground">No active brands yet.</p>
       ) : (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {brands.map((brand) => (
             <BrandCard
               key={brand.id}

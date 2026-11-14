@@ -25,7 +25,7 @@ function SearchField({ className, autoFocus = false }: { className?: string; aut
         name="q"
         autoFocus={autoFocus}
         placeholder="Search aldrops, handles, locks…"
-        className="h-10 w-full rounded-full border border-[#003c6c]/12 bg-white pr-4 pl-10 text-sm outline-none placeholder:text-muted-foreground focus:border-lime focus:ring-3 focus:ring-lime/30"
+        className="h-11 w-full rounded-full border border-[#003c6c]/12 bg-white pr-4 pl-10 text-base outline-none placeholder:text-muted-foreground focus:border-lime focus:ring-3 focus:ring-lime/30 md:h-10 md:text-sm"
       />
     </form>
   );
@@ -77,7 +77,7 @@ export function SiteHeader({ accountName }: { accountName?: string | null }) {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="grid size-10 place-items-center rounded-xl border border-black/6 bg-white text-foreground lg:hidden"
+            className="grid size-11 place-items-center rounded-xl border border-black/6 bg-white text-foreground lg:hidden"
             aria-label="Open menu"
           >
             <Menu className="size-4" />
@@ -99,7 +99,7 @@ export function SiteHeader({ accountName }: { accountName?: string | null }) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-3 py-2.5 text-sm font-medium text-primary hover:bg-muted"
+                  className="rounded-xl px-3 py-3 text-base font-medium text-primary hover:bg-muted"
                 >
                   {item.label}
                 </Link>

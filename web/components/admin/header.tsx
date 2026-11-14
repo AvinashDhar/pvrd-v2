@@ -29,7 +29,7 @@ export function AdminHeader({
       <button
         type="button"
         onClick={onMenu}
-        className="grid size-10 shrink-0 place-items-center rounded-xl border border-black/6 bg-white text-foreground lg:hidden"
+        className="grid size-11 shrink-0 place-items-center rounded-xl border border-black/6 bg-white text-foreground lg:hidden"
         aria-label="Open navigation"
       >
         <Menu className="size-4" />
@@ -51,7 +51,7 @@ export function AdminHeader({
       <div className="flex items-center gap-2 sm:gap-3">
         <Link
           href="/admin/notifications"
-          className="grid size-10 place-items-center rounded-full border border-black/6 bg-white text-foreground transition-transform hover:scale-105"
+          className="grid size-11 place-items-center rounded-full border border-black/6 bg-white text-foreground transition-transform hover:scale-105"
           aria-label="Notifications"
         >
           <Bell className="size-4" />

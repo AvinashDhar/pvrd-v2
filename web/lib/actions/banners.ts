@@ -8,6 +8,7 @@ import { activityLogs, banners, newId, notifications } from "@/lib/db/schema";
 import { getAdminSession } from "@/lib/auth/session";
 import { bannerLinkTypes, bannerTypes, getBanner, type BannerLinkType, type BannerType } from "@/lib/banners/queries";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
+import { formError } from "@/lib/forms";
 
 async function removeBannerImage(url: string | null, key: string) {
   const shared = await db.select({ id: notifications.id }).from(notifications).where(eq(notifications.imageKey, key)).limit(1);
@@ -27,13 +28,13 @@ function readDate(value: FormDataEntryValue | null, end = false) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export async function saveBanner(_previous: { error: string } | null, formData: FormData) {
+export async function saveBanner(_previous: { error: string; field?: string } | null, formData: FormData) {
   const session = await getAdminSession();
-  if (!session) return { error: "Sign in again." };
+  if (!session) return formError("Sign in again.");
 
   const id = String(formData.get("id") ?? "");
   const current = id ? await getBanner(id) : null;
-  if (id && !current) return { error: "Banner was not found." };
+  if (id && !current) return formError("Banner was not found.");
 
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
@@ -46,23 +47,31 @@ export async function saveBanner(_previous: { error: string } | null, formData: 
   const startAt = readDate(formData.get("startAt"));
   const endAt = readDate(formData.get("endAt"), true);
 
-  if (!title) return { error: "Banner title is required." };
-  if (!description) return { error: "Banner description is required." };
-  if (!bannerTypes.includes(type as BannerType)) return { error: "Choose a banner type." };
-  if (!["active", "inactive"].includes(status)) return { error: "Choose a valid status." };
-  if (!bannerLinkTypes.includes(linkType as BannerLinkType)) return { error: "Choose a valid link." };
-  if (!Number.isFinite(sortOrder)) return { error: "Display order must be a number." };
+  if (!title) return formError("Banner title is required.", "title");
+  if (title.length > 200) return formError("Title must be 200 characters or fewer.", "title");
+  if (!description) return formError("Banner description is required.", "description");
+  if (description.length > 2000) return formError("Description must be 2000 characters or fewer.", "description");
+  if (!bannerTypes.includes(type as BannerType)) return formError("Choose a banner type.", "type");
+  if (!["active", "inactive"].includes(status)) return formError("Choose a valid status.", "status");
+  if (!bannerLinkTypes.includes(linkType as BannerLinkType)) return formError("Choose a valid link.", "linkType");
+  if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 9999) {
+    return formError("Display order must be a whole number from 0 to 9999.", "sortOrder");
+  }
   if (type === "category" && (linkType !== "category" || !linkId)) {
-    return { error: "Choose the category this banner belongs to." };
+    return formError("Choose the category this banner belongs to.", "linkId");
   }
-  if (linkType !== "none" && !linkId) return { error: "Choose the item this banner links to." };
-  if ((type === "homepage" || type === "promotional") && (!startAt || !endAt)) {
-    return { error: "Start and end dates are required for this banner." };
+  if (linkType !== "none" && !linkId) return formError("Choose the item this banner links to.", "linkId");
+  if ((type === "homepage" || type === "promotional") && !startAt) {
+    return formError("Start date is required for this banner.", "startAt");
   }
-  if (startAt && endAt && endAt < startAt) return { error: "End date must be on or after the start date." };
+  if ((type === "homepage" || type === "promotional") && !endAt) {
+    return formError("End date is required for this banner.", "endAt");
+  }
+  if (startAt && endAt && endAt < startAt) return formError("End date must be on or after the start date.", "endAt");
   if (type === "promotional" && !redirectUrl && linkType === "none") {
-    return { error: "Add a redirect link or choose a product, category, brand, or offer." };
+    return formError("Add a redirect link or choose a product, category, brand, or offer.", "redirectUrl");
   }
+  if (redirectUrl.length > 500) return formError("Redirect link must be 500 characters or fewer.", "redirectUrl");
 
   const bannerId = current?.id ?? newId();
   let imageUrl = current?.imageUrl ?? null;
@@ -74,10 +83,10 @@ export async function saveBanner(_previous: { error: string } | null, formData: 
       imageUrl = stored.url;
       imageKey = stored.key;
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Image upload failed." };
+      return formError(error instanceof Error ? error.message : "Image upload failed.", "image");
     }
   }
-  if (!imageUrl) return { error: "A banner image is required." };
+  if (!imageUrl) return formError("A banner image is required.", "image");
 
   const values = {
     title,

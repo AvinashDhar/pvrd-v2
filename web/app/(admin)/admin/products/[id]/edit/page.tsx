@@ -32,6 +32,7 @@ export default async function EditProductPage({
         fields: category.fields,
         variantFields: category.variantFields,
         displayFormula: category.displayFormula,
+        displayRates: category.displayRates,
       }))}
       brands={brandOptions}
       product={{
@@ -53,14 +54,22 @@ export default async function EditProductPage({
           url: image.url,
           isPrimary: image.isPrimary,
         })),
-        variants: product.variants.map((variant) => ({
-          id: variant.id,
-          name: variant.name,
-          finish: variant.finish ?? "",
-          size: variant.size ?? "",
-          price: variant.price ?? "",
-          copyPrice: Boolean(variant.copyPriceFromParent),
-        })),
+        variants: product.variants.map((variant) => {
+          const stored = (variant.attributes ?? {}) as Record<string, unknown>;
+          const copy = stored._copy && typeof stored._copy === "object" ? { ...(stored._copy as Record<string, boolean>) } : {};
+          if (variant.copyPriceFromParent) copy.price = true;
+          const values: Record<string, string> = {
+            name: variant.name,
+            finish: variant.finish ?? "",
+            size: variant.size ?? "",
+            price: variant.price ?? "",
+          };
+          for (const [key, value] of Object.entries(stored)) {
+            if (key.startsWith("_")) continue;
+            values[key] = value == null ? "" : String(value);
+          }
+          return { id: variant.id, values, copy, imageUrl: variant.imageUrl, hasImage: Boolean(variant.imageUrl) };
+        }),
       }}
     />
   );

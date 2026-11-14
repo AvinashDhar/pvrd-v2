@@ -4,11 +4,14 @@ import { count, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { activityLogs, categories, newId, products } from "@/lib/db/schema";
+import { activityLogs, catalogues, categories, newId, products } from "@/lib/db/schema";
 import { getAdminSession } from "@/lib/auth/session";
-import { normalizeFields, slugify } from "@/lib/catalogue/fields";
+import { normalizeFields, readDisplayRates, slugify } from "@/lib/catalogue/fields";
+import { BUILTIN_SCHEMA_VERSION } from "@/lib/categories/field-schemas";
 import { getCategory } from "@/lib/catalogue/queries";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
+import { removeStoredPdf } from "@/lib/storage/objects";
+import { formError } from "@/lib/forms";
 
 function refresh() {
   revalidatePath("/admin/categories");
@@ -36,20 +39,24 @@ function readJson(formData: FormData, key: string) {
   }
 }
 
-export async function saveCategory(_previous: { error: string } | null, formData: FormData) {
+export async function saveCategory(_previous: { error: string; field?: string } | null, formData: FormData) {
   const session = await getAdminSession();
-  if (!session) return { error: "Sign in again." };
+  if (!session) return formError("Sign in again.");
 
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const status = String(formData.get("status") ?? "active");
-  const displayFormula = String(formData.get("displayFormula") ?? "").trim();
-  if (!name) return { error: "Category name is required." };
-  if (!["active", "inactive", "hidden"].includes(status)) return { error: "Choose a valid status." };
+  const displayRates = readDisplayRates({ displayRates: readJson(formData, "displayRates") });
+  const displayFormula = displayRates.map((rate) => rate.formula).join(" · ")
+    || String(formData.get("displayFormula") ?? "").trim();
+  if (!name) return formError("Category name is required.", "name");
+  if (name.length > 160) return formError("Name must be 160 characters or fewer.", "name");
+  if (description.length > 2000) return formError("Description must be 2000 characters or fewer.", "description");
+  if (!["active", "inactive", "hidden"].includes(status)) return formError("Choose a valid status.", "status");
 
   const current = id ? await getCategory(id) : null;
-  if (id && !current) return { error: "Category was not found." };
+  if (id && !current) return formError("Category was not found.");
 
   const fields = normalizeFields(readJson(formData, "fields"));
   const variantFields = normalizeFields(readJson(formData, "variantFields"), false);
@@ -64,7 +71,7 @@ export async function saveCategory(_previous: { error: string } | null, formData
       const used = new Set(rows.flatMap((row) => Object.keys((row.attributes ?? {}) as object)));
       const blocked = removed.find((field) => used.has(field.key));
       if (blocked) {
-        return { error: `${blocked.label} is already used by products, so it cannot be removed.` };
+        return formError(`${blocked.label} is already used by products, so it cannot be removed.`, "fields");
       }
     }
   }
@@ -73,16 +80,20 @@ export async function saveCategory(_previous: { error: string } | null, formData
   let imageUrl = current?.imageUrl ?? null;
   let imageKey = current?.imageKey ?? null;
   const image = formData.get("image");
+  const removeImage = formData.get("removeImage") === "1";
   if (image instanceof File && image.size > 0) {
     try {
       const stored = await storeImage(image, { folder: "categories", id: categoryId });
       imageUrl = stored.url;
       imageKey = stored.key;
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Image upload failed." };
+      return formError(error instanceof Error ? error.message : "Image upload failed.", "image");
     }
+  } else if (removeImage) {
+    imageUrl = null;
+    imageKey = null;
   }
-  if (!imageUrl) return { error: "A category image is required." };
+  if (!current && !imageUrl) return formError("A category image is required.", "image");
 
   const values = {
     name,
@@ -90,7 +101,12 @@ export async function saveCategory(_previous: { error: string } | null, formData
     status: status as "active" | "hidden" | "inactive",
     imageUrl,
     imageKey,
-    fieldSchema: { fields, displayFormula: displayFormula || undefined },
+    fieldSchema: {
+      schemaVersion: BUILTIN_SCHEMA_VERSION,
+      fields,
+      displayFormula: displayFormula || undefined,
+      displayRates,
+    },
     variantSchema: variantFields,
   };
 
@@ -148,6 +164,9 @@ export async function deleteCategory(formData: FormData) {
     redirect(`/admin/categories/${id}?error=${encodeURIComponent("This category still has products, so it cannot be deleted. Hide it instead.")}`);
   }
   await removeStoredImage(category.imageUrl, category.imageKey);
+  const files = await db.select().from(catalogues).where(eq(catalogues.categoryId, id));
+  for (const file of files) await removeStoredPdf(file.pdfKey);
+  await db.delete(catalogues).where(eq(catalogues.categoryId, id));
   await db.delete(categories).where(eq(categories.id, id));
   await db.insert(activityLogs).values({
     title: `${session.name} deleted category ${category.name}`,

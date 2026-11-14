@@ -55,9 +55,9 @@ export default async function UsersPage({
         <StatCard label="Waiting for approval" value={asNumber(totals?.pending)} icon={Users} tone="purple" />
       </section>
 
-      <form className="flex flex-wrap items-center gap-2" action="/admin/users">
-        <Input name="q" defaultValue={q} placeholder="Search name, mobile, or email" className="w-64" />
-        <select name="type" defaultValue={type ?? ""} className="h-8 rounded-lg border border-input bg-white px-2 text-sm">
+      <form className="flex min-w-0 flex-wrap items-center gap-2" action="/admin/users">
+        <Input name="q" defaultValue={q} placeholder="Search name, mobile, or email" className="w-full min-w-0 sm:w-64" />
+        <select name="type" defaultValue={type ?? ""} className="pvrd-select sm:w-auto sm:shrink-0">
           <option value="">All types</option>
           {userTypes.map((item) => (
             <option key={item} value={item}>
@@ -65,7 +65,7 @@ export default async function UsersPage({
             </option>
           ))}
         </select>
-        <select name="status" defaultValue={status ?? ""} className="h-8 rounded-lg border border-input bg-white px-2 text-sm">
+        <select name="status" defaultValue={status ?? ""} className="pvrd-select sm:w-auto sm:shrink-0">
           <option value="">All statuses</option>
           {accountStatuses.map((item) => (
             <option key={item} value={item}>

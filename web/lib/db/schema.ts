@@ -229,15 +229,20 @@ export const reviews = mysqlTable("reviews", {
   createdAt: datetime("created_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
 });
 
-export const catalogues = mysqlTable("catalogues", {
-  id: id(),
-  categoryId: ref("category_id")
-    .notNull()
-    .references(() => categories.id),
-  pdfUrl: text("pdf_url"),
-  status: varchar("status", { length: 40 }).default("draft").notNull(),
-  generatedAt: datetime("generated_at", { mode: "date" }),
-});
+export const catalogues = mysqlTable(
+  "catalogues",
+  {
+    id: id(),
+    categoryId: ref("category_id")
+      .notNull()
+      .references(() => categories.id),
+    pdfUrl: text("pdf_url"),
+    pdfKey: varchar("pdf_key", { length: 255 }),
+    status: varchar("status", { length: 40 }).default("draft").notNull(),
+    generatedAt: datetime("generated_at", { mode: "date" }),
+  },
+  (table) => [index("catalogues_category_idx").on(table.categoryId)],
+);
 
 export const activityLogs = mysqlTable("activity_logs", {
   id: id(),

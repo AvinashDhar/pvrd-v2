@@ -1,9 +1,5 @@
-import type { NextConfig } from "next";
-
-function imageHosts(): NonNullable<NextConfig["images"]>["remotePatterns"] {
-  const patterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
-    { protocol: "https", hostname: "*.r2.dev", pathname: "/**" },
-  ];
+function imageHosts() {
+  const patterns = [{ protocol: "https", hostname: "*.r2.dev", pathname: "/**" }];
   const raw = process.env.R2_PUBLIC_URL?.trim();
   if (!raw) return patterns;
   try {
@@ -17,7 +13,9 @@ function imageHosts(): NonNullable<NextConfig["images"]>["remotePatterns"] {
   return patterns;
 }
 
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  serverExternalPackages: ["@react-pdf/renderer", "sharp"],
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: imageHosts(),

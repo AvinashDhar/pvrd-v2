@@ -7,21 +7,25 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { ConfirmForm } from "@/components/admin/confirm-form";
 import { deleteProduct } from "@/lib/actions/products";
-import { listBrands, listCategories, listProducts, productStats } from "@/lib/catalogue/queries";
+import { listBrands, listCategories, listProducts, productAnalytics, productStats } from "@/lib/catalogue/queries";
+import { ProductListForm, SelectAll } from "@/components/admin/product-list-form";
 import { formatINR } from "@/lib/format";
 
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; categoryId?: string; brandId?: string; status?: string; minPrice?: string; maxPrice?: string }>;
+  searchParams: Promise<{ q?: string; categoryId?: string; brandId?: string; status?: string; minPrice?: string; maxPrice?: string; sort?: string; dir?: string }>;
 }) {
   const filters = await searchParams;
-  const [items, categories, brands, stats] = await Promise.all([
+  const [items, categories, brands, stats, analytics] = await Promise.all([
     listProducts(filters),
     listCategories(),
     listBrands(),
     productStats(),
+    productAnalytics(),
   ]);
+  const sort = filters.sort ?? "created";
+  const dir = filters.dir === "asc" ? "asc" : "desc";
 
   return (
     <div className="space-y-5">
@@ -32,55 +36,81 @@ export default async function ProductsPage({
         <StatCard label="Hidden" value={stats.hidden} icon={Search} tone="orange" />
       </section>
 
-      <form action="/admin/products" className="pvrd-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <label className="grid gap-1.5 xl:col-span-2">
+      <section className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+        <RankList title="Most viewed" rows={analytics.viewed.map((item) => ({ label: item.name, value: `${item.total} views` }))} empty="No product views yet." />
+        <RankList title="Most downloaded" rows={analytics.downloaded.map((item) => ({ label: item.name, value: `${item.total} downloads` }))} empty="No catalogue downloads yet." />
+        <RankList title="Top categories" rows={analytics.topCategories.map((item) => ({ label: item.name, value: `${item.total} views` }))} empty="No category views yet." />
+        <RankList title="Low visibility" rows={analytics.lowVisibility.map((item) => ({ label: item.name, value: item.status === "active" ? `${item.total} views` : item.status }))} empty="No products yet." />
+      </section>
+
+      <form action="/admin/products" className="pvrd-card grid min-w-0 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <label className="grid min-w-0 gap-1.5 xl:col-span-2">
           <span className="text-xs font-medium text-muted-foreground">Search</span>
           <Input name="q" defaultValue={filters.q} placeholder="Name, SKU, category, brand" />
         </label>
         <Select name="categoryId" label="Category" value={filters.categoryId} options={categories.map((category) => ({ value: category.id, label: category.name }))} />
         <Select name="brandId" label="Brand" value={filters.brandId} options={brands.map((brand) => ({ value: brand.id, label: brand.name }))} />
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Status</span>
-          <select name="status" defaultValue={filters.status ?? "all"} className="h-8 rounded-lg border border-input bg-white px-2.5 text-sm">
+          <select name="status" defaultValue={filters.status ?? "all"} className="pvrd-select">
             <option value="all">All status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="hidden">Hidden</option>
           </select>
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Min price</span>
           <Input name="minPrice" type="number" min="0" defaultValue={filters.minPrice} />
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Max price</span>
           <Input name="maxPrice" type="number" min="0" defaultValue={filters.maxPrice} />
         </label>
-        <div className="flex items-end gap-2">
+        <div className="flex min-w-0 flex-wrap items-end gap-2">
           <Button type="submit" className="flex-1">Search</Button>
           <Button variant="outline" render={<Link href="/admin/products" />}>Reset</Button>
         </div>
       </form>
 
+      <div className="flex justify-end">
+        <Button render={<Link href="/admin/products/new" />}>
+          <Plus data-icon="inline-start" />
+          Add Product
+        </Button>
+      </div>
+      <ProductListForm>
       <div className="pvrd-card overflow-hidden">
-        <div className="flex justify-end px-4 py-3">
-          <Button render={<Link href="/admin/products/new" />}>
-            <Plus data-icon="inline-start" />
-            Add Product
-          </Button>
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+          <select name="bulk" defaultValue="hidden" className="pvrd-select">
+            <option value="hidden">Hide selected</option>
+            <option value="inactive">Mark inactive</option>
+            <option value="active">Mark active</option>
+            <option value="delete">Delete selected</option>
+          </select>
+          <Button type="submit" variant="outline">Apply</Button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-muted/60 text-left text-xs text-muted-foreground">
               <tr>
-                {["Product", "SKU", "Category", "Brand", "MRP", "Price", "Status", ""].map((column) => (
-                  <th key={column} className="px-4 py-3 font-medium">{column}</th>
-                ))}
+                <th className="px-4 py-3"><SelectAll /></th>
+                <SortHeader label="Product" column="name" sort={sort} dir={dir} filters={filters} />
+                <SortHeader label="SKU" column="sku" sort={sort} dir={dir} filters={filters} />
+                <SortHeader label="Category" column="category" sort={sort} dir={dir} filters={filters} />
+                <SortHeader label="Brand" column="brand" sort={sort} dir={dir} filters={filters} />
+                <SortHeader label="MRP" column="mrp" sort={sort} dir={dir} filters={filters} />
+                <SortHeader label="Price" column="price" sort={sort} dir={dir} filters={filters} />
+                <SortHeader label="Status" column="status" sort={sort} dir={dir} filters={filters} />
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {items.map((product) => (
                 <tr key={product.id} className="pvrd-row">
+                  <td className="px-4 py-3">
+                    <input type="checkbox" name="ids" value={product.id} aria-label={`Select ${product.name}`} />
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <ProductThumb name={product.name} image={product.image} />
@@ -96,10 +126,7 @@ export default async function ProductsPage({
                   <td className="px-4 py-3 text-right">
                     <Button variant="ghost" size="sm" render={<Link href={`/admin/products/${product.id}`} />}>View</Button>
                     <Button variant="ghost" size="sm" render={<Link href={`/admin/products/${product.id}/edit`} />}>Edit</Button>
-                    <ConfirmForm action={deleteProduct} message={`Delete ${product.name}? This cannot be undone.`}>
-                      <input type="hidden" name="id" value={product.id} />
-                      <Button type="submit" variant="ghost" size="sm">Delete</Button>
-                    </ConfirmForm>
+                    <Button type="submit" variant="ghost" size="sm" form={`delete-${product.id}`}>Delete</Button>
                   </td>
                 </tr>
               ))}
@@ -110,7 +137,59 @@ export default async function ProductsPage({
           Showing {items.length} product{items.length === 1 ? "" : "s"}
         </p>
       </div>
+      </ProductListForm>
+      {items.map((product) => (
+        <ConfirmForm id={`delete-${product.id}`} action={deleteProduct} message={`Delete ${product.name}? This cannot be undone.`}>
+          <input type="hidden" name="id" value={product.id} />
+        </ConfirmForm>
+      ))}
     </div>
+  );
+}
+
+function RankList({ title, rows, empty }: { title: string; rows: { label: string; value: string }[]; empty: string }) {
+  return (
+    <div className="pvrd-card p-4">
+      <h2 className="font-heading text-sm font-semibold">{title}</h2>
+      {rows.length === 0 ? <p className="mt-3 text-xs text-muted-foreground">{empty}</p> : (
+        <ol className="mt-3 space-y-2">
+          {rows.map((row) => (
+            <li key={row.label} className="flex items-center justify-between gap-3 text-sm">
+              <span className="truncate">{row.label}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{row.value}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function SortHeader({
+  label,
+  column,
+  sort,
+  dir,
+  filters,
+}: {
+  label: string;
+  column: string;
+  sort: string;
+  dir: string;
+  filters: Record<string, string | undefined>;
+}) {
+  const nextDir = sort === column && dir === "asc" ? "desc" : "asc";
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value && key !== "sort" && key !== "dir") params.set(key, value);
+  }
+  params.set("sort", column);
+  params.set("dir", nextDir);
+  const mark = sort === column ? (dir === "asc" ? " ↑" : " ↓") : "";
+  return (
+    <th className="px-4 py-3 font-medium">
+      <Link href={`/admin/products?${params.toString()}`} className="hover:text-primary">{label}{mark}</Link>
+    </th>
   );
 }
 
@@ -126,9 +205,9 @@ function Select({
   options: { value: string; label: string }[];
 }) {
   return (
-    <label className="grid gap-1.5">
+    <label className="grid min-w-0 gap-1.5">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <select name={name} defaultValue={value ?? ""} className="h-8 rounded-lg border border-input bg-white px-2.5 text-sm">
+      <select name={name} defaultValue={value ?? ""} className="pvrd-select">
         <option value="">All</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>

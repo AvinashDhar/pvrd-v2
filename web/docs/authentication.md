@@ -6,12 +6,12 @@ OM PVRD has two kinds of sign-in. Catalogue accounts use the public site. Admini
 
 | Who | How they join | What they can do |
 | --- | --- | --- |
-| Retailer | Signs up, then signs in | Browse the catalogue and keep a profile. Inquiries, loyalty, and catalogue downloads are allowed only while the account is active. |
+| Retailer | Signs up, then signs in | Browse the catalogue, see the dealer rate, and keep a profile. Inquiries, loyalty, and catalogue downloads are allowed only while the account is active. |
 | Carpenter / Contractor | Signs up as `pending` | Same as a retailer after an administrator approves the account. Until then the account cannot sign in. |
-| Consumer | Signs up, then signs in | Browse the catalogue and keep a profile. Reviews of contractors are a consumer feature when that module is built. |
+| Consumer | Signs up, then signs in | Browse the catalogue at MRP and keep a profile. The dealer rate stays hidden. Reviews of contractors are a consumer feature when that module is built. |
 | Administrator | Created in the `admins` table, not by public signup | Opens `/login/admin`, manages the catalogue, and approves, deactivates, blocks, or deletes catalogue accounts. |
 
-The public catalogue stays open without an account. Signing in does not yet unlock a separate trade-price list.
+The public catalogue stays open without an account. Everyone sees MRP. A signed-in retailer or carpenter sees the dealer rate, which is the product Price (and each variant price). Consumers stay on MRP.
 
 ## Sign up
 

@@ -7,6 +7,7 @@ export function MediaImage({
   className,
   imageClassName,
   priority = false,
+  fit = "cover",
   sizes = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw",
 }: {
   src: string;
@@ -14,6 +15,7 @@ export function MediaImage({
   className?: string;
   imageClassName?: string;
   priority?: boolean;
+  fit?: "cover" | "contain";
   sizes?: string;
 }) {
   return (
@@ -25,7 +27,7 @@ export function MediaImage({
         priority={priority}
         sizes={sizes}
         quality={75}
-        className={cn("object-cover", imageClassName)}
+        className={cn(fit === "contain" ? "object-contain p-[12%]" : "object-cover", imageClassName)}
       />
     </div>
   );

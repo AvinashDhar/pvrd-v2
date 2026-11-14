@@ -27,37 +27,37 @@ export default async function BannersPage({
         <StatCard label="Clicks" value={stats.clicks} icon={ImageIcon} tone="purple" />
       </section>
 
-      <form action="/admin/banners" className="pvrd-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6">
-        <label className="grid gap-1.5 lg:col-span-2">
+      <form action="/admin/banners" className="pvrd-card grid min-w-0 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6">
+        <label className="grid min-w-0 gap-1.5 lg:col-span-2">
           <span className="text-xs font-medium text-muted-foreground">Search</span>
           <Input name="q" defaultValue={filters.q} placeholder="Banner title" />
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Type</span>
-          <select name="type" defaultValue={filters.type ?? "all"} className="h-8 rounded-lg border border-input bg-white px-2.5 text-sm">
+          <select name="type" defaultValue={filters.type ?? "all"} className="pvrd-select">
             <option value="all">All types</option>
             <option value="homepage">Homepage</option>
             <option value="category">Category</option>
             <option value="promotional">Promotional</option>
           </select>
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Status</span>
-          <select name="status" defaultValue={filters.status ?? "all"} className="h-8 rounded-lg border border-input bg-white px-2.5 text-sm">
+          <select name="status" defaultValue={filters.status ?? "all"} className="pvrd-select">
             <option value="all">All status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">From</span>
           <Input name="from" type="date" defaultValue={filters.from} />
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">To</span>
           <Input name="to" type="date" defaultValue={filters.to} />
         </label>
-        <div className="flex items-end gap-2 lg:col-span-6">
+        <div className="flex min-w-0 flex-wrap items-end gap-2 lg:col-span-6">
           <Button type="submit">Search</Button>
           <Button variant="outline" nativeButton={false} render={<Link href="/admin/banners" />}>Reset</Button>
           <Button className="ml-auto" nativeButton={false} render={<Link href="/admin/banners/new" />}>

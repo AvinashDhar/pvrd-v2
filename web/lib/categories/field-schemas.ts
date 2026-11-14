@@ -13,6 +13,13 @@ export type CategoryField = {
   required: boolean;
   options?: string[];
   copyFromParent?: boolean;
+  group?: string;
+};
+
+export type DisplayRate = {
+  label: string;
+  formula: string;
+  keys: string[];
 };
 
 export type CategorySchema = {
@@ -21,7 +28,50 @@ export type CategorySchema = {
   fields: CategoryField[];
   variantFields: CategoryField[];
   displayFormula?: string;
+  displayRates?: DisplayRate[];
 };
+
+/** Bump when built-in category fields change so stored schemas are refreshed once. */
+export const BUILTIN_SCHEMA_VERSION = 2;
+
+export const finishOptions = [
+  "SS",
+  "Antique Brass",
+  "Black Matt",
+  "Gold",
+  "Rose Gold",
+  "Chrome",
+  "Nickel",
+  "Copper",
+  "Graphite",
+  "White",
+  "Ivory",
+];
+
+function finish(required: boolean): CategoryField {
+  return { key: "finish", label: "Finish", type: "select", required, options: finishOptions };
+}
+
+function variantRates(required = true): CategoryField[] {
+  return [
+    { key: "mrp", label: "MRP", type: "number", required },
+    { key: "price", label: "Price", type: "number", required },
+    { key: "contractorDiscount", label: "Contractor Discount", type: "number", required },
+    { key: "consumerDiscount", label: "Consumer Discount", type: "number", required },
+  ];
+}
+
+export function builtinFieldSchema(schema: CategorySchema) {
+  const displayRates = schema.displayRates ?? (schema.displayFormula
+    ? [{ label: "Display rate", formula: schema.displayFormula, keys: [] }]
+    : []);
+  return {
+    schemaVersion: BUILTIN_SCHEMA_VERSION,
+    fields: schema.fields,
+    displayFormula: displayRates.map((rate) => rate.formula).filter(Boolean).join(" · ") || schema.displayFormula,
+    displayRates,
+  };
+}
 
 const commonPricing: CategoryField[] = [
   { key: "image", label: "Upload Photo", type: "image", required: true },
@@ -45,11 +95,11 @@ export const categorySchemas: CategorySchema[] = [
   {
     slug: "curtain-brackets",
     name: "Curtain Brackets",
-    fields: withCommon([{ key: "finish", label: "Finish", type: "select", required: true }]),
+    fields: withCommon([finish(true)]),
     variantFields: [
-      { key: "image", label: "Image", type: "image", required: true },
+      { key: "image", label: "Upload Image", type: "image", required: true },
       { key: "name", label: "Name", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
       { key: "price", label: "Price", type: "number", required: true, copyFromParent: true },
     ],
   },
@@ -57,6 +107,13 @@ export const categorySchemas: CategorySchema[] = [
     slug: "door-aldrop",
     name: "Door Aldrop",
     displayFormula: "Rod Length × Rod Diameter × Plate Thickness",
+    displayRates: [
+      {
+        label: "Display rate",
+        formula: "Rod Length × Rod Diameter × Plate Thickness",
+        keys: ["rodLength", "rodDiameter", "plateThickness"],
+      },
+    ],
     fields: withCommon([
       { key: "size", label: "Size", type: "text", required: true },
       { key: "rodLength", label: "Rod Length", type: "number", required: true },
@@ -66,7 +123,7 @@ export const categorySchemas: CategorySchema[] = [
     ]),
     variantFields: [
       { key: "name", label: "Name", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
       { key: "size", label: "Size", type: "text", required: true, copyFromParent: true },
       { key: "price", label: "Price", type: "number", required: true, copyFromParent: true },
     ],
@@ -75,6 +132,13 @@ export const categorySchemas: CategorySchema[] = [
     slug: "door-handles",
     name: "Door Handles",
     displayFormula: "Plate Length × Plate Width × Plate Thickness",
+    displayRates: [
+      {
+        label: "Display rate",
+        formula: "Plate Length × Plate Width × Plate Thickness",
+        keys: ["plateLength", "plateWidth", "plateThickness"],
+      },
+    ],
     fields: withCommon([
       { key: "size", label: "Size", type: "text", required: true },
       { key: "plateLength", label: "Plate Length", type: "number", required: true },
@@ -84,7 +148,7 @@ export const categorySchemas: CategorySchema[] = [
     ]),
     variantFields: [
       { key: "name", label: "Name", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
       { key: "size", label: "Size", type: "text", required: true, copyFromParent: true },
       { key: "price", label: "Price", type: "number", required: true, copyFromParent: true },
     ],
@@ -92,14 +156,41 @@ export const categorySchemas: CategorySchema[] = [
   {
     slug: "door-kits",
     name: "Door Kits",
+    displayRates: [
+      {
+        label: "Aldrop display rate",
+        formula: "Rod Length × Rod Diameter × Plate Thickness",
+        keys: ["aldropRodLength", "aldropRodDiameter", "aldropPlateThickness"],
+      },
+      {
+        label: "Handle display rate",
+        formula: "Plate Length × Plate Width × Plate Thickness",
+        keys: ["handlePlateLength", "handlePlateWidth", "handlePlateThickness"],
+      },
+      {
+        label: "Latch display rate",
+        formula: "Rod Length × Rod Diameter × Plate Thickness",
+        keys: ["latchRodLength", "latchRodDiameter", "latchPlateThickness"],
+      },
+    ],
     fields: withCommon([
       { key: "size", label: "Size", type: "text", required: true },
-      { key: "aldrop", label: "Aldrop", type: "text", required: true },
-      { key: "rodLength", label: "Rod Length", type: "number", required: true },
-      { key: "rodDiameter", label: "Rod Diameter", type: "number", required: true },
-      { key: "handle", label: "Handle (2 pcs)", type: "text", required: true },
-      { key: "doorStopper", label: "Door Stopper", type: "text", required: false },
-      { key: "towerBolt", label: "Tower Bolt", type: "text", required: false },
+      { key: "aldrop", label: "Aldrop", type: "text", required: true, group: "Aldrop" },
+      { key: "aldropRodLength", label: "Rod Length", type: "number", required: true, group: "Aldrop" },
+      { key: "aldropRodDiameter", label: "Rod Diameter", type: "number", required: true, group: "Aldrop" },
+      { key: "aldropPlateThickness", label: "Plate Thickness", type: "number", required: true, group: "Aldrop" },
+      { key: "handle", label: "Handle (2 pcs)", type: "text", required: true, group: "Handle" },
+      { key: "handlePlateLength", label: "Plate Length", type: "number", required: true, group: "Handle" },
+      { key: "handlePlateWidth", label: "Plate Width", type: "number", required: true, group: "Handle" },
+      { key: "handlePlateThickness", label: "Plate Thickness", type: "number", required: true, group: "Handle" },
+      { key: "doorStopper", label: "Door Stopper", type: "text", required: true, group: "Door stopper" },
+      { key: "doorStopperName", label: "Name", type: "text", required: true, group: "Door stopper" },
+      { key: "towerBolt", label: "Tower Bolt", type: "text", required: true, group: "Tower bolt" },
+      { key: "towerBoltSize", label: "Size", type: "text", required: true, group: "Tower bolt" },
+      { key: "latch", label: "Latch", type: "text", required: true, group: "Latch" },
+      { key: "latchRodLength", label: "Rod Length", type: "number", required: true, group: "Latch" },
+      { key: "latchRodDiameter", label: "Rod Diameter", type: "number", required: true, group: "Latch" },
+      { key: "latchPlateThickness", label: "Plate Thickness", type: "number", required: true, group: "Latch" },
       { key: "weight", label: "Weight of Products", type: "number", required: true },
     ]),
     variantFields: [],
@@ -114,7 +205,7 @@ export const categorySchemas: CategorySchema[] = [
     ]),
     variantFields: [
       { key: "name", label: "Name", type: "text", required: false },
-      { key: "finish", label: "Finish", type: "select", required: false },
+      finish(false),
       { key: "price", label: "Price", type: "number", required: false },
     ],
   },
@@ -122,15 +213,14 @@ export const categorySchemas: CategorySchema[] = [
     slug: "door-fittings",
     name: "Door Fittings",
     fields: withCommon([
-      { key: "finish", label: "Finish", type: "select", required: false },
+      finish(false),
       { key: "size", label: "Size", type: "text", required: false },
       { key: "weight", label: "Weight", type: "number", required: true },
     ]),
     variantFields: [
       { key: "name", label: "Name", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
-      { key: "mrp", label: "MRP", type: "number", required: true },
-      { key: "price", label: "Price", type: "number", required: true },
+      finish(true),
+      ...variantRates(),
     ],
   },
   {
@@ -139,12 +229,12 @@ export const categorySchemas: CategorySchema[] = [
     fields: withCommon([
       { key: "warranty", label: "Guarantee / Warranty", type: "text", required: true },
       { key: "weight", label: "Weight", type: "number", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
     ]),
     variantFields: [
       { key: "name", label: "Name", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
-      { key: "price", label: "Price", type: "number", required: true },
+      finish(true),
+      ...variantRates(),
     ],
   },
   {
@@ -152,12 +242,12 @@ export const categorySchemas: CategorySchema[] = [
     name: "Tower Bolts",
     fields: withCommon([
       { key: "size", label: "Size", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
     ]),
     variantFields: [
       { key: "name", label: "Name", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
-      { key: "price", label: "Price", type: "number", required: true },
+      finish(true),
+      ...variantRates(),
     ],
   },
   {
@@ -190,7 +280,7 @@ export const categorySchemas: CategorySchema[] = [
     name: "Modular Kitchen Accessories",
     fields: withCommon([
       { key: "size", label: "Size", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
     ]),
     variantFields: [],
   },
@@ -198,15 +288,14 @@ export const categorySchemas: CategorySchema[] = [
     slug: "cabinet-handles",
     name: "Cabinet Handles",
     fields: withCommon([
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
       { key: "size", label: "Size", type: "text", required: true },
     ]),
     variantFields: [
       { key: "size", label: "Size", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
-      { key: "image", label: "Image", type: "image", required: true },
-      { key: "mrp", label: "MRP", type: "number", required: true },
-      { key: "price", label: "Price", type: "number", required: true },
+      finish(true),
+      { key: "image", label: "Product Image", type: "image", required: true },
+      ...variantRates(),
       { key: "points", label: "Points", type: "number", required: false },
     ],
   },
@@ -216,13 +305,13 @@ export const categorySchemas: CategorySchema[] = [
     fields: withCommon([
       { key: "brand", label: "Brand", type: "select", required: false },
       { key: "size", label: "Size", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
       { key: "weight", label: "Weight", type: "number", required: true },
     ]),
     variantFields: [
       { key: "name", label: "Name", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
-      { key: "price", label: "Price", type: "number", required: true },
+      finish(true),
+      ...variantRates(),
     ],
   },
   {
@@ -244,9 +333,10 @@ export const categorySchemas: CategorySchema[] = [
     name: "Edge Bindings",
     fields: withCommon([
       { key: "shadeName", label: "Shade Name", type: "text", required: true },
-      { key: "finish", label: "Finish", type: "select", required: true },
+      finish(true),
       { key: "size", label: "Size", type: "text", required: true },
-    ]),
+      { key: "consumerDiscount", label: "Discount for Dealers", type: "number", required: true },
+    ]).filter((field) => field.key !== "price"),
     variantFields: [],
   },
   {
@@ -294,7 +384,7 @@ export const categorySchemas: CategorySchema[] = [
     fields: withCommon([
       { key: "weight", label: "Weight", type: "number", required: true },
       { key: "size", label: "Size", type: "text", required: false },
-      { key: "finish", label: "Finish", type: "select", required: false },
+      finish(false),
     ]),
     variantFields: [],
   },

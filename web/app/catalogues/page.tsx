@@ -10,7 +10,7 @@ export default async function PublicCataloguesPage() {
     <main className="pvrd-page">
       <PageHero
         title="Catalogues"
-        description="Category ranges in the current catalogue. A download appears here after a PDF is stored for that category."
+        description="Print-ready PDFs for each category. View a range here, or download it to share with retailers and keep on site."
       />
       {catalogues.length === 0 ? (
         <p className="mt-8 text-sm text-muted-foreground">No catalogues yet.</p>
@@ -25,20 +25,26 @@ export default async function PublicCataloguesPage() {
                 <MediaImage
                   src={catalogue.image}
                   alt=""
-                  className="size-16 shrink-0 rounded-2xl sm:size-20"
+                  className="size-20 shrink-0 rounded-2xl"
                   sizes="80px"
                 />
                 <div>
-                  <h2 className="font-heading font-semibold tracking-tight">{catalogue.name}</h2>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {catalogue.products} products{catalogue.pdfUrl ? "" : " · PDF not stored yet"}
+                  <h2 className="font-heading text-lg font-semibold tracking-tight">{catalogue.name}</h2>
+                  <p className="mt-0.5 text-base text-muted-foreground">
+                    {catalogue.activeProducts} active {catalogue.activeProducts === 1 ? "product" : "products"}
+                    {catalogue.pdfUrl ? "" : " · PDF not stored yet"}
                   </p>
                 </div>
               </div>
               {catalogue.pdfUrl ? (
-                <Button variant="outline" className="w-full sm:w-auto" nativeButton={false} render={<a href={catalogue.pdfUrl} />}>
-                  Download PDF
-                </Button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                  <Button variant="outline" className="w-full sm:w-auto" nativeButton={false} render={<a href={`/api/catalogues/${catalogue.id}/download?view=1`} target="_blank" rel="noreferrer" />}>
+                    View catalogue
+                  </Button>
+                  <Button variant="outline" className="w-full sm:w-auto" nativeButton={false} render={<a href={`/api/catalogues/${catalogue.id}/download`} />}>
+                    Download PDF
+                  </Button>
+                </div>
               ) : (
                 <Button variant="outline" className="w-full sm:w-auto" nativeButton={false} render={<Link href={`/products?category=${catalogue.slug}`} />}>
                   Browse products

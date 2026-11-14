@@ -5,7 +5,8 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { MediaImage } from "@/components/catalogue/media-image";
 import { ConfirmForm } from "@/components/admin/confirm-form";
 import { deleteProduct, setProductStatus } from "@/lib/actions/products";
-import { getProduct } from "@/lib/catalogue/queries";
+import { getCategory, getProduct } from "@/lib/catalogue/queries";
+import { computeDisplayRate } from "@/lib/catalogue/fields";
 import { fallbackImage } from "@/lib/media";
 import { formatINR } from "@/lib/format";
 
@@ -17,6 +18,11 @@ export default async function ProductDetailPage({
   const { id } = await params;
   const product = await getProduct(id);
   if (!product) notFound();
+  const category = await getCategory(product.categoryId);
+  const rates = (category?.displayRates ?? []).map((rate) => ({
+    ...rate,
+    value: computeDisplayRate(rate.keys, product.attributes),
+  }));
 
   return (
     <div className="space-y-5">
@@ -62,6 +68,17 @@ export default async function ProductDetailPage({
               </div>
             ))}
           </div>
+          {rates.length > 0 ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {rates.map((rate) => (
+                <div key={rate.label}>
+                  <p className="text-xs text-muted-foreground">{rate.label}</p>
+                  <p className="font-medium">{rate.value ?? "—"}</p>
+                  <p className="text-[11px] text-muted-foreground">{rate.formula}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
           {Object.entries(product.attributes).length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {Object.entries(product.attributes).map(([key, value]) => (
@@ -77,21 +94,28 @@ export default async function ProductDetailPage({
           <table className="w-full text-sm">
             <thead className="bg-muted/60 text-left text-xs text-muted-foreground">
               <tr>
-                {["Variant", "Finish", "Size", "Price", "Copy price"].map((column) => (
+                {["Variant", "Finish", "Size", "MRP", "Price", "Contractor", "Consumer", "Points"].map((column) => (
                   <th key={column} className="px-4 py-3 font-medium">{column}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {product.variants.map((variant) => (
-                <tr key={variant.id} className="pvrd-row">
-                  <td className="px-4 py-3 font-medium">{variant.name}</td>
-                  <td className="px-4 py-3">{variant.finish || "—"}</td>
-                  <td className="px-4 py-3">{variant.size || "—"}</td>
-                  <td className="px-4 py-3">{variant.price ? formatINR(variant.price) : "—"}</td>
-                  <td className="px-4 py-3">{variant.copyPriceFromParent ? "Yes" : "No"}</td>
-                </tr>
-              ))}
+              {product.variants.map((variant) => {
+                const stored = (variant.attributes ?? {}) as Record<string, unknown>;
+                const text = (key: string) => (stored[key] == null || stored[key] === "" ? "—" : String(stored[key]));
+                return (
+                  <tr key={variant.id} className="pvrd-row">
+                    <td className="px-4 py-3 font-medium">{variant.name}</td>
+                    <td className="px-4 py-3">{variant.finish || "—"}</td>
+                    <td className="px-4 py-3">{variant.size || "—"}</td>
+                    <td className="px-4 py-3">{text("mrp")}</td>
+                    <td className="px-4 py-3">{variant.price ? formatINR(variant.price) : "—"}</td>
+                    <td className="px-4 py-3">{text("contractorDiscount")}</td>
+                    <td className="px-4 py-3">{text("consumerDiscount")}</td>
+                    <td className="px-4 py-3">{text("points")}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

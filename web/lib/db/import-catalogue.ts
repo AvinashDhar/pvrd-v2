@@ -60,6 +60,7 @@ async function main() {
   const { activityLogs, brandCategories, brands, categories, newId, productImages, productVariants, products } = await import("./schema");
   const { categorySchemas } = await import("../categories/field-schemas");
   const { imageForCategory } = await import("../media");
+  const { builtinFieldSchema } = await import("../categories/field-schemas");
 
   for (const schema of categorySchemas) {
     const [existing] = await db.select({ id: categories.id }).from(categories).where(eq(categories.slug, schema.slug)).limit(1);
@@ -70,7 +71,7 @@ async function main() {
       imageUrl: imageForCategory(schema.slug),
       description: schema.displayFormula ? `Display rate: ${schema.displayFormula}` : null,
       status: "active",
-      fieldSchema: { fields: schema.fields, displayFormula: schema.displayFormula },
+      fieldSchema: builtinFieldSchema(schema),
       variantSchema: schema.variantFields,
     });
   }

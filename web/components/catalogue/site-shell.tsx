@@ -10,7 +10,7 @@ export async function SiteShell({ children }: { children: ReactNode }) {
   const offer = offers.find(offerIsCurrent);
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <p className="bg-primary px-4 py-2 text-center text-[12px] font-medium tracking-wide text-white">
+      <p className="bg-primary px-4 py-2.5 text-center text-sm leading-snug font-medium text-white">
         {offer ? (
           <>
             {offer.name}.{" "}

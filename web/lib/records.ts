@@ -168,23 +168,29 @@ export async function listLoyaltyRows() {
 export async function listCatalogueRows() {
   const [categoryRows, files, totals] = await Promise.all([
     db.select().from(categories).orderBy(categories.name),
-    db.select().from(catalogues),
+    db.select().from(catalogues).orderBy(catalogues.generatedAt),
     db
-      .select({ categoryId: products.categoryId, total: count() })
+      .select({
+        categoryId: products.categoryId,
+        total: count(),
+        active: sql<number>`coalesce(sum(case when ${products.status} = 'active' then 1 else 0 end), 0)`,
+      })
       .from(products)
       .groupBy(products.categoryId),
   ]);
-  const counts = new Map(totals.map((row) => [row.categoryId, asNumber(row.total)]));
+  const counts = new Map(totals.map((row) => [row.categoryId, { total: asNumber(row.total), active: asNumber(row.active) }]));
   const filesByCategory = new Map(files.map((file) => [file.categoryId, file]));
   return categoryRows.map((category) => {
     const file = filesByCategory.get(category.id);
+    const countForCategory = counts.get(category.id);
     return {
       id: category.id,
       name: category.name,
       slug: category.slug,
       status: category.status,
       image: category.imageUrl || fallbackImage,
-      products: counts.get(category.id) ?? 0,
+      products: countForCategory?.total ?? 0,
+      activeProducts: countForCategory?.active ?? 0,
       pdfUrl: file?.pdfUrl ?? null,
       pdfStatus: file?.status ?? "draft",
       generatedAt: file?.generatedAt ?? null,

@@ -40,7 +40,7 @@ export function CommandSearch({ search }: { search: AdminSearchIndex }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="grid size-10 place-items-center rounded-full border border-black/6 bg-white text-foreground shadow-[0_1px_2px_rgba(0,44,84,0.04)] transition-all hover:border-lime hover:shadow-[0_8px_24px_rgba(163,203,70,0.16)] md:hidden"
+        className="grid size-11 place-items-center rounded-full border border-black/6 bg-white text-foreground shadow-[0_1px_2px_rgba(0,44,84,0.04)] transition-all hover:border-lime hover:shadow-[0_8px_24px_rgba(163,203,70,0.16)] md:hidden"
         aria-label="Search"
       >
         <Search className="size-4" />

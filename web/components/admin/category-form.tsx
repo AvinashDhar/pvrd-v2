@@ -1,14 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldListEditor } from "@/components/admin/field-list-editor";
+import { ImageDropzone } from "@/components/admin/image-dropzone";
 import { saveCategory } from "@/lib/actions/categories";
 import { starterFields } from "@/lib/catalogue/fields";
-import type { CategoryField } from "@/lib/categories/field-schemas";
+import type { CategoryField, DisplayRate } from "@/lib/categories/field-schemas";
 
 export function CategoryForm({
   category,
@@ -20,44 +22,95 @@ export function CategoryForm({
     status: string;
     imageUrl: string | null;
     displayFormula?: string;
+    displayRates?: DisplayRate[];
     fields: CategoryField[];
     variantFields: CategoryField[];
   };
 }) {
   const [state, action, pending] = useActionState(saveCategory, null);
+  const [removed, setRemoved] = useState(false);
+  const [rates, setRates] = useState<DisplayRate[]>(category?.displayRates ?? []);
 
   return (
-    <form action={action} className="pvrd-card max-w-4xl space-y-5 p-4 sm:p-6">
+    <ActionForm action={action} state={state} className="pvrd-card max-w-4xl space-y-5 p-4 sm:p-6">
       {category ? <input type="hidden" name="id" value={category.id} /> : null}
-      {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1.5">
+      <FormBanner state={state} />
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <label className="grid min-w-0 gap-1.5">
           <Label>Category name</Label>
-          <Input name="name" defaultValue={category?.name} required />
+          <Input name="name" defaultValue={category?.name} required maxLength={160} {...invalidProps(state, "name")} />
+          <FieldIssue state={state} name="name" />
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <Label>Status</Label>
-          <select name="status" defaultValue={category?.status ?? "active"} className="h-8 rounded-lg border border-input bg-white px-2.5 text-sm">
+          <select name="status" defaultValue={category?.status ?? "active"} className="pvrd-select" {...invalidProps(state, "status")}>
             <option value="active">Active</option>
             <option value="hidden">Hidden</option>
           </select>
+          <FieldIssue state={state} name="status" />
         </label>
       </div>
       <label className="grid gap-1.5">
         <Label>Description</Label>
-        <Textarea name="description" defaultValue={category?.description ?? ""} />
+        <Textarea name="description" defaultValue={category?.description ?? ""} maxLength={2000} {...invalidProps(state, "description")} />
+        <FieldIssue state={state} name="description" />
       </label>
-      <label className="grid gap-1.5">
-        <Label>Display formula</Label>
-        <Input name="displayFormula" defaultValue={category?.displayFormula ?? ""} placeholder="Rod Length × Rod Diameter × Plate Thickness" />
-      </label>
-      <label className="grid gap-1.5">
-        <Label>{category ? "Replace image" : "Category image"}</Label>
-        <Input name="image" type="file" accept="image/png,image/jpeg,image/webp" required={!category?.imageUrl} />
-        <span className="text-xs text-muted-foreground">Only a file you choose here is stored. Catalogue photos already on the server are left where they are.</span>
-        {category?.imageUrl ? <img src={category.imageUrl} alt="" className="mt-2 h-24 w-auto rounded-lg border border-border object-contain" /> : null}
-      </label>
-      <FieldListEditor name="fields" title="Product fields" initial={category?.fields ?? starterFields} />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <Label>Display rates</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setRates((current) => [...current, { label: "Display rate", formula: "", keys: [] }])}
+          >
+            Add rate
+          </Button>
+        </div>
+        <input type="hidden" name="displayRates" value={JSON.stringify(rates)} />
+        {rates.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No display rate. Add one when a size should be shown as a calculated measurement.</p>
+        ) : (
+          rates.map((rate, index) => (
+            <div key={`${rate.label}-${index}`} className="grid gap-2 rounded-xl bg-muted/50 p-3 sm:grid-cols-[minmax(0,0.6fr)_minmax(0,1fr)_auto]">
+              <Input
+                value={rate.label}
+                aria-label="Display rate label"
+                onChange={(event) => setRates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))}
+              />
+              <Input
+                value={rate.formula}
+                aria-label="Display rate formula"
+                placeholder="Rod Length × Rod Diameter × Plate Thickness"
+                onChange={(event) => setRates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, formula: event.target.value } : item))}
+              />
+              <Button type="button" variant="outline" onClick={() => setRates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                Remove
+              </Button>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="grid gap-2">
+        <ImageDropzone
+          name="image"
+          required={!category}
+          invalid={state?.field === "image"}
+          label={category ? "Replace image" : "Category image"}
+        />
+        <FieldIssue state={state} name="image" />
+        {removed ? <input type="hidden" name="removeImage" value="1" /> : null}
+        {category?.imageUrl && !removed ? (
+          <div className="flex items-end gap-3">
+            <img src={category.imageUrl} alt="" className="h-24 w-auto rounded-lg border border-border object-contain" />
+            <Button type="button" variant="outline" onClick={() => setRemoved(true)}>Remove image</Button>
+          </div>
+        ) : null}
+      </div>
+      <div className="space-y-2">
+        <FieldListEditor name="fields" title="Product fields" initial={category?.fields ?? starterFields} />
+        <FieldIssue state={state} name="fields" />
+      </div>
       <FieldListEditor name="variantFields" title="Variant fields" initial={category?.variantFields ?? []} />
       <p className="text-xs text-muted-foreground">
         New fields show empty on existing products. Removed fields disappear from the form, and saved values stay in the database until a product is edited.
@@ -65,6 +118,6 @@ export function CategoryForm({
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : category ? "Save category" : "Create category"}</Button>
       </div>
-    </form>
+    </ActionForm>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +33,7 @@ export function ProfileForm({
     <div className="mx-auto grid max-w-3xl gap-5 px-4 py-8 sm:px-6">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="font-heading text-3xl font-semibold">Your profile</h1>
+          <h1 className="font-heading text-2xl font-semibold sm:text-3xl">Your profile</h1>
           <p className="text-sm text-muted-foreground">
             {roleLabel(account.userType)} · registered {formatDate(account.createdAt)}
             {account.lastLoginAt ? ` · last sign-in ${formatDateTime(account.lastLoginAt)}` : ""}
@@ -45,57 +46,63 @@ export function ProfileForm({
         </form>
       </div>
 
-      <form className="pvrd-card grid gap-4 p-5 sm:p-7" action={action}>
+      <ActionForm className="pvrd-card grid gap-4 p-5 sm:p-7" action={action} state={state}>
         {account.photoUrl ? (
           <MediaImage src={account.photoUrl} alt="" className="size-20 rounded-full" sizes="80px" />
         ) : null}
         {saved ? <p className="text-sm text-[#5f7a18]">Profile saved.</p> : null}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-1.5">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="name">Full name</Label>
-            <Input id="name" name="name" defaultValue={account.name} required />
+            <Input id="name" name="name" defaultValue={account.name} required minLength={2} maxLength={160} {...invalidProps(state, "name")} />
+            <FieldIssue state={state} name="name" />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="mobile">Mobile</Label>
             <Input id="mobile" value={account.mobile} readOnly />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" defaultValue={account.email ?? ""} />
+            <Input id="email" name="email" type="email" defaultValue={account.email ?? ""} maxLength={255} {...invalidProps(state, "email")} />
+            <FieldIssue state={state} name="email" />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="city">City</Label>
-            <Input id="city" name="city" defaultValue={account.city ?? ""} required />
+            <Input id="city" name="city" defaultValue={account.city ?? ""} required minLength={2} maxLength={120} {...invalidProps(state, "city")} />
+            <FieldIssue state={state} name="city" />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <Label>Account type</Label>
             <Input value={roleLabel(account.userType)} readOnly />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <Label>Status</Label>
             <Input value={account.status} readOnly className="capitalize" />
           </div>
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="photo">Replace photo</Label>
-          <Input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" />
+          <Input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" {...invalidProps(state, "photo")} />
+          <FieldIssue state={state} name="photo" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-1.5">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="password">New password</Label>
-            <Input id="password" name="password" type="password" autoComplete="new-password" />
+            <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} maxLength={128} {...invalidProps(state, "password")} />
+            <FieldIssue state={state} name="password" />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="confirm">Confirm new password</Label>
-            <Input id="confirm" name="confirm" type="password" autoComplete="new-password" />
+            <Input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={8} maxLength={128} {...invalidProps(state, "confirm")} />
+            <FieldIssue state={state} name="confirm" />
           </div>
         </div>
         <p className="text-xs text-muted-foreground">Leave the password fields blank to keep the current password.</p>
-        {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+        <FormBanner state={state} />
         <Button type="submit" disabled={pending} className="w-fit">
           {pending ? "Saving…" : "Save profile"}
         </Button>
-      </form>
+      </ActionForm>
     </div>
   );
 }

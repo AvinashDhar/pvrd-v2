@@ -18,10 +18,10 @@ export type CompanySettings = {
 export const defaultCompanySettings: CompanySettings = {
   companyName: "OM PVRD",
   tagline: "Premium Hardware Fittings",
-  email: "hello@ompvrd.com",
-  phone: "+91 79 4000 1200",
+  email: "",
+  phone: "070047 27925",
   website: "https://ompvrd.com",
-  address: "14, Hardware Market, Ahmedabad, Gujarat",
+  address: "K D N SINGH GALI, Bye Pass Rd, Chas, Bokaro Steel City, Jharkhand 827013",
   logoUrl: null,
   instagram: "https://instagram.com/ompvrd",
   facebook: "https://facebook.com/ompvrd",

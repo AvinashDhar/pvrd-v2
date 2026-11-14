@@ -1,5 +1,6 @@
 import { fallbackImage } from "@/lib/media";
-import { getProduct, listProducts, publicCatalogue } from "@/lib/catalogue/queries";
+import { computeDisplayRate } from "@/lib/catalogue/fields";
+import { getCategory, getProduct, listProducts, publicCatalogue } from "@/lib/catalogue/queries";
 
 export async function publicCategories() {
   const { categories } = await publicCatalogue();
@@ -54,6 +55,10 @@ export async function filterCatalogue({
 export async function getPublicProduct(id: string) {
   const product = await getProduct(id);
   if (!product || product.status !== "active" || product.categoryStatus !== "active") return null;
+  const category = await getCategory(product.categoryId);
+  const labels = new Map(
+    (category?.fields ?? []).map((field) => [field.key, field.group ? `${field.group} · ${field.label}` : field.label]),
+  );
   return {
     ...toCard({
       ...product,
@@ -64,6 +69,27 @@ export async function getPublicProduct(id: string) {
     sku: product.sku || "",
     description: product.description,
     attributes: product.attributes,
+    specs: Object.entries(product.attributes).map(([key, value]) => ({
+      label: labels.get(key) ?? key,
+      value,
+    })),
+    displayRates: (category?.displayRates ?? []).map((rate) => ({
+      label: rate.label,
+      formula: rate.formula,
+      value: computeDisplayRate(rate.keys, product.attributes),
+    })),
+    variants: product.variants.map((variant) => {
+      const stored = (variant.attributes ?? {}) as Record<string, unknown>;
+      return {
+        name: variant.name,
+        finish: variant.finish,
+        size: variant.size,
+        price: variant.price,
+        image: variant.imageUrl,
+        mrp: stored.mrp ? String(stored.mrp) : "",
+        points: stored.points ? String(stored.points) : "",
+      };
+    }),
   };
 }
 

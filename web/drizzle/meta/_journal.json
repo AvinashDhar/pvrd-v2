@@ -29,6 +29,13 @@
       "when": 1794549910762,
       "tag": "0003_banner_links",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1794570237660,
+      "tag": "0004_catalogue_pdf_key",
+      "breakpoints": true
     }
   ]
 }

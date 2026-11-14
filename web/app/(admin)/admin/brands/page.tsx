@@ -30,29 +30,29 @@ export default async function BrandsPage({
         <StatCard label="Top brand products" value={brands.reduce((max, brand) => Math.max(max, brand.productCount), 0)} icon={Award} tone="purple" />
       </section>
 
-      <form className="pvrd-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5" action="/admin/brands">
-        <label className="grid gap-1.5 lg:col-span-2">
+      <form className="pvrd-card grid min-w-0 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5" action="/admin/brands">
+        <label className="grid min-w-0 gap-1.5 lg:col-span-2">
           <span className="text-xs font-medium text-muted-foreground">Search</span>
           <Input name="q" defaultValue={filters.q} placeholder="Brand name" />
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Category</span>
-          <select name="categoryId" defaultValue={filters.categoryId ?? ""} className="h-8 rounded-lg border border-input bg-white px-2.5 text-sm">
+          <select name="categoryId" defaultValue={filters.categoryId ?? ""} className="pvrd-select">
             <option value="">All categories</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Status</span>
-          <select name="status" defaultValue={filters.status ?? "all"} className="h-8 rounded-lg border border-input bg-white px-2.5 text-sm">
+          <select name="status" defaultValue={filters.status ?? "all"} className="pvrd-select">
             <option value="all">All status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
         </label>
-        <div className="flex items-end gap-2">
+        <div className="flex min-w-0 flex-wrap items-end gap-2">
           <Button type="submit" className="flex-1">Search</Button>
           <Button variant="outline" render={<Link href="/admin/brands" />}>Reset</Button>
         </div>

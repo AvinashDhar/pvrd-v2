@@ -1,8 +1,8 @@
-import type { CategoryField, FieldType } from "@/lib/categories/field-schemas";
+import { BUILTIN_SCHEMA_VERSION, type CategoryField, type DisplayRate, type FieldType } from "@/lib/categories/field-schemas";
 
 export const fieldTypes: FieldType[] = ["text", "number", "select", "textarea", "image", "checkbox"];
 
-export const lockedFieldKeys = new Set(["name", "mrp", "price"]);
+export const lockedFieldKeys = new Set(["name", "mrp"]);
 
 export const starterFields: CategoryField[] = [
   { key: "image", label: "Upload Photo", type: "image", required: true },
@@ -20,7 +20,6 @@ export const starterFields: CategoryField[] = [
 const lockedFields: CategoryField[] = [
   { key: "name", label: "Product Name", type: "text", required: true },
   { key: "mrp", label: "MRP", type: "number", required: true },
-  { key: "price", label: "Price", type: "number", required: true },
 ];
 
 export function slugify(value: string) {
@@ -49,6 +48,44 @@ export function readFormula(value: unknown) {
   return undefined;
 }
 
+export function readSchemaVersion(value: unknown) {
+  if (value && typeof value === "object" && "schemaVersion" in value) {
+    const version = Number((value as { schemaVersion?: unknown }).schemaVersion);
+    return Number.isFinite(version) ? version : 0;
+  }
+  return 0;
+}
+
+export function readDisplayRates(value: unknown): DisplayRate[] {
+  if (value && typeof value === "object" && Array.isArray((value as { displayRates?: unknown }).displayRates)) {
+    return ((value as { displayRates: unknown[] }).displayRates).flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const rate = item as Partial<DisplayRate>;
+      const formula = String(rate.formula ?? "").trim();
+      if (!formula) return [];
+      const keys = Array.isArray(rate.keys) ? rate.keys.map((key) => String(key)) : [];
+      return [{ label: String(rate.label ?? "Display rate").trim() || "Display rate", formula, keys }];
+    });
+  }
+  const formula = readFormula(value);
+  return formula ? [{ label: "Display rate", formula, keys: [] }] : [];
+}
+
+export function computeDisplayRate(keys: string[], attributes: Record<string, string>) {
+  if (keys.length === 0) return null;
+  let product = 1;
+  for (const key of keys) {
+    const raw = attributes[key];
+    if (!raw?.trim()) return null;
+    const number = Number(raw);
+    if (!Number.isFinite(number)) return null;
+    product *= number;
+  }
+  return Number.isInteger(product) ? String(product) : String(Math.round(product * 100) / 100);
+}
+
+export { BUILTIN_SCHEMA_VERSION };
+
 export function readVariantFields(value: unknown): CategoryField[] {
   return Array.isArray(value) ? (value as CategoryField[]) : [];
 }
@@ -66,7 +103,19 @@ export function normalizeFields(input: unknown, lockCore = true) {
     const key = String(raw.key ?? "").trim() || slugify(label).replace(/-/g, "");
     if (!label || !key || seen.has(key)) continue;
     seen.add(key);
-    fields.push({ key, label, type, required: Boolean(raw.required) });
+    const options = Array.isArray(raw.options)
+      ? raw.options.map((option) => String(option).trim()).filter(Boolean)
+      : [];
+    const group = String(raw.group ?? "").trim();
+    fields.push({
+      key,
+      label,
+      type,
+      required: Boolean(raw.required),
+      ...(options.length > 0 ? { options } : {}),
+      ...(raw.copyFromParent ? { copyFromParent: true } : {}),
+      ...(group ? { group } : {}),
+    });
   }
 
   if (lockCore) {

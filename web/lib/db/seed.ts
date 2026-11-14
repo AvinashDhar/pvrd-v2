@@ -58,6 +58,7 @@ async function main() {
   const { categories } = await import("./schema");
   const { categorySchemas } = await import("../categories/field-schemas");
   const { imageForCategory } = await import("../media");
+  const { builtinFieldSchema } = await import("../categories/field-schemas");
   let createdCategories = 0;
 
   for (const schema of categorySchemas) {
@@ -73,12 +74,15 @@ async function main() {
       imageUrl: imageForCategory(schema.slug),
       description: schema.displayFormula ? `Display rate: ${schema.displayFormula}` : null,
       status: "active",
-      fieldSchema: { fields: schema.fields, displayFormula: schema.displayFormula },
+      fieldSchema: builtinFieldSchema(schema),
       variantSchema: schema.variantFields,
     });
     createdCategories += 1;
   }
   console.log(`Seeded ${createdCategories} categories`);
+  const { ensureBuiltinSchemas } = await import("../categories/sync");
+  await ensureBuiltinSchemas();
+  console.log("Refreshed built-in category fields");
 }
 
 main()

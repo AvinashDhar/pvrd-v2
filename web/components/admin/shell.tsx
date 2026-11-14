@@ -16,7 +16,7 @@ const titles: Record<string, { title: string; subtitle: string }> = {
   "/admin/brands": { title: "Brand Management", subtitle: "Logos, categories and product counts" },
   "/admin/users": { title: "User Management", subtitle: "Retailers, contractors and consumers" },
   "/admin/reviews": { title: "Review Management", subtitle: "Moderate consumer reviews of contractors" },
-  "/admin/catalogues": { title: "Catalogue Management", subtitle: "Category ranges and stored PDF files" },
+  "/admin/catalogues": { title: "Catalogue Management", subtitle: "Generate, preview and download category PDFs" },
   "/admin/banners": { title: "Banner Management", subtitle: "Homepage, category and promotional creatives" },
   "/admin/notifications": { title: "Notification Management", subtitle: "Schedule and send audience campaigns" },
   "/admin/offers": { title: "Special Offers", subtitle: "Product, category, brand and gift campaigns" },

@@ -10,7 +10,7 @@ export default async function PublicCategoriesPage() {
         title="Categories"
         description="Find the right hardware family, then jump into products and catalogues."
       />
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         {categories.map((category) => (
           <CategoryCard
             key={category.id}

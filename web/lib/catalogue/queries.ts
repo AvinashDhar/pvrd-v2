@@ -1,15 +1,17 @@
-import { type AnyColumn, and, count, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { type AnyColumn, and, asc, count, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   brandCategories,
   brands,
   categories,
+  analyticsEvents,
   productImages,
   productVariants,
   products,
 } from "@/lib/db/schema";
 import { fallbackImage } from "@/lib/media";
-import { readFields, readFormula, readVariantFields } from "@/lib/catalogue/fields";
+import { readDisplayRates, readFields, readFormula, readVariantFields } from "@/lib/catalogue/fields";
+import { ensureBuiltinSchemas } from "@/lib/categories/sync";
 
 function contains(column: AnyColumn, value: string) {
   const term = `%${value.replace(/[%_]/g, "").toLowerCase()}%`;
@@ -17,6 +19,7 @@ function contains(column: AnyColumn, value: string) {
 }
 
 export async function listCategories() {
+  await ensureBuiltinSchemas();
   const rows = await db.select().from(categories).orderBy(categories.name);
   const totals = await db
     .select({ categoryId: products.categoryId, total: count() })
@@ -29,11 +32,13 @@ export async function listCategories() {
     productCount: counts.get(row.id) ?? 0,
     fields: readFields(row.fieldSchema),
     displayFormula: readFormula(row.fieldSchema),
+    displayRates: readDisplayRates(row.fieldSchema),
     variantFields: readVariantFields(row.variantSchema),
   }));
 }
 
 export async function getCategory(id: string) {
+  await ensureBuiltinSchemas();
   const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
   if (!row) return null;
   const [total] = await db
@@ -45,6 +50,7 @@ export async function getCategory(id: string) {
     productCount: total?.total ?? 0,
     fields: readFields(row.fieldSchema),
     displayFormula: readFormula(row.fieldSchema),
+    displayRates: readDisplayRates(row.fieldSchema),
     variantFields: readVariantFields(row.variantSchema),
   };
 }
@@ -119,7 +125,20 @@ export type ProductFilters = {
   status?: string;
   minPrice?: string;
   maxPrice?: string;
+  sort?: string;
+  dir?: string;
 };
+
+const productSortColumns = {
+  name: products.name,
+  sku: products.sku,
+  category: categories.name,
+  brand: brands.name,
+  mrp: products.mrp,
+  price: products.price,
+  status: products.status,
+  created: products.createdAt,
+} as const;
 
 export async function listProducts(filters: ProductFilters = {}) {
   const conditions = [];
@@ -152,7 +171,7 @@ export async function listProducts(filters: ProductFilters = {}) {
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(brands, eq(products.brandId, brands.id))
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(products.createdAt));
+    .orderBy(orderProducts(filters.sort, filters.dir));
 
   const images = await primaryImageMap(rows.map((row) => row.id));
   return rows.map((row) => ({ ...row, image: images.get(row.id) ?? fallbackImage }));
@@ -204,16 +223,21 @@ export async function getProduct(id: string) {
     .limit(1);
   if (!row) return null;
 
-  const images = await db
+  const allImages = await db
     .select()
     .from(productImages)
-    .where(and(eq(productImages.productId, id), isNull(productImages.variantId)))
+    .where(eq(productImages.productId, id))
     .orderBy(productImages.sortOrder);
-  const variants = await db
+  const images = allImages.filter((image) => !image.variantId);
+  const variantRows = await db
     .select()
     .from(productVariants)
     .where(eq(productVariants.productId, id))
     .orderBy(productVariants.sortOrder);
+  const variants = variantRows.map((variant) => ({
+    ...variant,
+    imageUrl: allImages.find((image) => image.variantId === variant.id)?.url ?? null,
+  }));
 
   return {
     ...row,
@@ -223,6 +247,74 @@ export async function getProduct(id: string) {
     images,
     variants,
     image: images.find((image) => image.isPrimary)?.url ?? images[0]?.url ?? fallbackImage,
+  };
+}
+
+function orderProducts(sort?: string, dir?: string) {
+  const column = productSortColumns[sort as keyof typeof productSortColumns] ?? products.createdAt;
+  return dir === "asc" ? asc(column) : desc(column);
+}
+
+export async function productAnalytics() {
+  const [productRows, categoryRows, events] = await Promise.all([
+    db
+      .select({
+        id: products.id,
+        name: products.name,
+        status: products.status,
+        categoryId: products.categoryId,
+        categoryName: categories.name,
+      })
+      .from(products)
+      .innerJoin(categories, eq(products.categoryId, categories.id)),
+    db.select({ id: categories.id, name: categories.name }).from(categories),
+    db
+      .select({
+        entityId: analyticsEvents.entityId,
+        type: analyticsEvents.type,
+        total: count(),
+      })
+      .from(analyticsEvents)
+      .where(eq(analyticsEvents.entityType, "product"))
+      .groupBy(analyticsEvents.entityId, analyticsEvents.type),
+  ]);
+
+  const views = new Map<string, number>();
+  const downloads = new Map<string, number>();
+  for (const event of events) {
+    const bucket = event.type === "download" ? downloads : event.type === "view" ? views : null;
+    if (bucket) bucket.set(event.entityId, Number(event.total));
+  }
+
+  const ranked = (source: Map<string, number>) =>
+    productRows
+      .map((product) => ({ ...product, total: source.get(product.id) ?? 0 }))
+      .filter((product) => product.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+  const categoryViews = new Map<string, number>();
+  for (const product of productRows) {
+    categoryViews.set(product.categoryId, (categoryViews.get(product.categoryId) ?? 0) + (views.get(product.id) ?? 0));
+  }
+  const topCategories = categoryRows
+    .map((category) => ({ name: category.name, total: categoryViews.get(category.id) ?? 0 }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  const lowVisibility = productRows
+    .map((product) => ({ ...product, total: views.get(product.id) ?? 0 }))
+    .sort((a, b) => {
+      const rank = (status: string) => (status === "hidden" ? 0 : status === "inactive" ? 1 : 2);
+      return rank(a.status) - rank(b.status) || a.total - b.total;
+    })
+    .slice(0, 5);
+
+  return {
+    viewed: ranked(views),
+    downloaded: ranked(downloads),
+    topCategories,
+    lowVisibility,
   };
 }
 

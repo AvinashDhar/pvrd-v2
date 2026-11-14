@@ -6,6 +6,10 @@ export function formatINR(value: number | string) {
   }).format(Number(value));
 }
 
+export function productCount(count: number) {
+  return `${count} ${count === 1 ? "product" : "products"}`;
+}
+
 export function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
 }
