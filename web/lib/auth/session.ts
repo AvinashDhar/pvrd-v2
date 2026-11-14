@@ -76,16 +76,19 @@ export type CatalogueAccount = {
   createdAt: Date;
 };
 
-export async function createUserSession(userId: string) {
+export async function issueUserSession(userId: string) {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + WEEK_MS);
-
   await db.insert(userSessions).values({
     userId,
     tokenHash: hashToken(token),
     expiresAt,
   });
+  return { token, expiresAt };
+}
 
+export async function createUserSession(userId: string) {
+  const { token, expiresAt } = await issueUserSession(userId);
   const jar = await cookies();
   jar.set(USER_COOKIE, token, {
     httpOnly: true,
@@ -96,9 +99,7 @@ export async function createUserSession(userId: string) {
   });
 }
 
-export async function getUserSession() {
-  const jar = await cookies();
-  const token = jar.get(USER_COOKIE)?.value;
+export async function accountFromToken(token: string | null | undefined) {
   if (!token) return null;
 
   const [session] = await db
@@ -125,11 +126,43 @@ export async function getUserSession() {
   return session satisfies CatalogueAccount;
 }
 
+export async function getUserSession() {
+  const jar = await cookies();
+  return accountFromToken(jar.get(USER_COOKIE)?.value);
+}
+
+/** A present but malformed bearer token is rejected. A missing header falls through to the site cookie. */
+export function readBearerToken(request: Request) {
+  const header = request.headers.get("authorization");
+  if (!header) return { kind: "absent" as const };
+  const match = /^Bearer\s+([A-Fa-f0-9]{64})$/.exec(header.trim());
+  if (!match) return { kind: "invalid" as const };
+  return { kind: "token" as const, token: match[1] };
+}
+
+export async function getRequestAccount(request: Request) {
+  const bearer = readBearerToken(request);
+  if (bearer.kind === "invalid") return { account: null, invalidToken: true as const };
+  if (bearer.kind === "token") return { account: await accountFromToken(bearer.token), invalidToken: false as const };
+  return { account: await getUserSession(), invalidToken: false as const };
+}
+
+export async function destroyToken(token: string | null | undefined) {
+  if (!token) return;
+  await db.delete(userSessions).where(eq(userSessions.tokenHash, hashToken(token)));
+}
+
 export async function destroyUserSession() {
   const jar = await cookies();
-  const token = jar.get(USER_COOKIE)?.value;
-  if (token) {
-    await db.delete(userSessions).where(eq(userSessions.tokenHash, hashToken(token)));
-  }
+  await destroyToken(jar.get(USER_COOKIE)?.value);
   jar.delete(USER_COOKIE);
+}
+
+export async function destroyRequestSession(request: Request) {
+  const bearer = readBearerToken(request);
+  if (bearer.kind === "token") {
+    await destroyToken(bearer.token);
+    return;
+  }
+  if (bearer.kind === "absent") await destroyUserSession();
 }

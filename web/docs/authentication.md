@@ -38,6 +38,10 @@ Photos go to `users/{userId}/{imageId}.ext` in the image bucket. The account sto
 
 The session cookie is `pvrd_user`. It is HTTP-only. The database stores only a hash of the token in `user_sessions`.
 
+A phone uses the same session table. `POST /api/v1/auth/login` and `POST /api/v1/auth/signup` return the raw token. Later calls send `Authorization: Bearer <token>`. The token lasts 7 days. `POST /api/v1/auth/logout` deletes that token. The website login forms still set the cookie and do not return the token.
+
+Catalogue JSON lives under `/api/v1`. Guests and consumers receive MRP. An active retailer or contractor also receives the dealer rate on products and variants. Image fields are absolute URLs. Admin sign-in stays on the cookie and is not part of `/api/v1`.
+
 `/account` shows the profile from the requirements: photo, name, mobile, email, type, city, registration date, last sign-in, and status. The person can change name, email, city, photo, and password. Mobile and account type stay fixed.
 
 ## What an administrator controls
@@ -54,9 +58,11 @@ A blocked, inactive, or pending account cannot sign in. The same rule applies to
 ## Where the code lives
 
 - `web/lib/db/schema.ts` — `users` and `user_sessions`
-- `web/lib/auth/session.ts` — catalogue and administrator cookies
+- `web/lib/auth/session.ts` — catalogue cookie, bearer token, and administrator cookie
+- `web/lib/auth/catalogue-account.ts` — shared signup, sign-in, and profile rules
 - `web/lib/auth/access.ts` — role labels and sign-in refusals
-- `web/lib/actions/account.ts` — signup, sign-in, profile, sign-out
+- `web/lib/actions/account.ts` — website signup, sign-in, profile, sign-out
+- `web/app/api/v1` — catalogue JSON and bearer-token account routes
 - `web/lib/actions/users.ts` — administrator approval, block, and delete
 - `web/app/login`, `web/app/signup`, `web/app/account` — public screens
 - `web/app/login/admin` — administrator screen

@@ -69,7 +69,9 @@ export async function getPublicProduct(id: string) {
     sku: product.sku || "",
     description: product.description,
     attributes: product.attributes,
+    categorySlug: product.categorySlug,
     specs: Object.entries(product.attributes).map(([key, value]) => ({
+      key,
       label: labels.get(key) ?? key,
       value,
     })),
@@ -109,6 +111,7 @@ function toCard(product: {
     name: product.name,
     brand: product.brandName || "",
     category: product.categoryName,
+    categorySlug: product.categorySlug || "",
     price: Number(product.price),
     mrp: Number(product.mrp),
     image: product.image,
