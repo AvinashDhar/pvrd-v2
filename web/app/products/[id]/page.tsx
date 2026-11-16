@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPublicProduct, publicProducts } from "@/lib/catalogue";
+import { getPublicProduct, relatedPublicProducts } from "@/lib/catalogue";
 import { recordProductEvent } from "@/lib/analytics";
 import { getUserSession } from "@/lib/auth/session";
 import { formatINR } from "@/lib/format";
-import { isTradeAccount, moneyAmount } from "@/lib/pricing";
-import { Button } from "@/components/ui/button";
-import { ProductCard } from "@/components/catalogue/product-card";
-import { MediaImage } from "@/components/catalogue/media-image";
+import { isTradeAccount } from "@/lib/pricing";
+import { ProductCard, productGridClassName } from "@/components/catalogue/product-card";
+import { cn } from "@/lib/utils";
+import { ProductGallery } from "@/components/catalogue/product-gallery";
+import { ProductVariants } from "@/components/catalogue/product-variants";
+import { AccountBenefits } from "@/components/catalogue/account-benefits";
+import { AddToQuotation } from "@/components/catalogue/add-to-quotation";
 
 export default async function PublicProductPage({
   params,
@@ -19,9 +22,7 @@ export default async function PublicProductPage({
   if (!product) notFound();
   const trade = isTradeAccount(account?.userType);
   await recordProductEvent("view", [id]);
-  const catalogue = await publicProducts();
-  const related = catalogue.filter((item) => item.id !== product.id && item.category === product.category).slice(0, 3);
-  const more = related.length ? related : catalogue.filter((item) => item.id !== product.id).slice(0, 3);
+  const more = await relatedPublicProducts(product.categoryId, product.id);
 
   return (
     <main className="pvrd-page">
@@ -32,17 +33,10 @@ export default async function PublicProductPage({
       </p>
 
       <section className="mt-6 grid gap-4 lg:grid-cols-2 lg:items-start">
-        <div className="pvrd-card overflow-hidden">
-          <MediaImage
-            src={product.image}
-            alt={product.name}
-            fit="contain"
-            className="aspect-[4/3] bg-white lg:aspect-square"
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            imageClassName="p-[8%] sm:p-[10%]"
-            priority
-          />
-        </div>
+        <ProductGallery
+          images={product.images.length > 0 ? product.images : [product.image]}
+          alt={product.name}
+        />
         <div className="pvrd-card flex flex-col overflow-hidden">
           <div className="bg-[#001F3D] px-5 py-5 sm:px-6 sm:py-6">
             <p className="text-xs font-medium tracking-[0.14em] text-white/70 uppercase">{product.category}</p>
@@ -74,62 +68,27 @@ export default async function PublicProductPage({
               </div>
             ))}
           </div>
-          {product.variants.length > 0 ? (
-            <div className="mt-6 grid gap-3 md:hidden">
-              {product.variants.map((variant) => (
-                <div key={`${variant.name}-${variant.size}-${variant.finish}`} className="rounded-2xl bg-muted/70 px-4 py-3">
-                  <p className="text-base font-semibold">{variant.name}</p>
-                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                    <div><dt className="text-muted-foreground">Finish</dt><dd>{variant.finish || "—"}</dd></div>
-                    <div><dt className="text-muted-foreground">Size</dt><dd>{variant.size || "—"}</dd></div>
-                    <div><dt className="text-muted-foreground">MRP</dt><dd>{variant.mrp ? formatINR(variant.mrp) : "—"}</dd></div>
-                    {trade ? (
-                      <div>
-                        <dt className="text-muted-foreground">Trade price</dt>
-                        <dd>{formatINR(moneyAmount(variant.price) ?? product.price)}</dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {product.variants.length > 0 ? (
-            <div className="mt-6 hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead className="text-left text-xs text-muted-foreground">
-                  <tr>
-                    {["Variant", "Finish", "Size", "MRP", ...(trade ? ["Trade price"] : []), "Points"].map((column) => (
-                      <th key={column} className="py-2 pr-3 font-medium">{column}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {product.variants.map((variant) => (
-                    <tr key={`${variant.name}-${variant.size}-${variant.finish}`} className="border-t border-border">
-                      <td className="py-2 pr-3 font-medium">{variant.name}</td>
-                      <td className="py-2 pr-3">{variant.finish || "—"}</td>
-                      <td className="py-2 pr-3">{variant.size || "—"}</td>
-                      <td className="py-2 pr-3">{variant.mrp ? formatINR(variant.mrp) : "—"}</td>
-                      {trade ? <td className="py-2 pr-3">{formatINR(moneyAmount(variant.price) ?? product.price)}</td> : null}
-                      <td className="py-2 pr-3">{variant.points || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
+          <ProductVariants variants={product.variants} trade={trade} productPrice={product.price} />
           {trade ? null : account ? (
             <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
-              Trade price is for retailer and carpenter accounts. This is a consumer account.
+              Discounted trade price is for retailer, carpenter, and contractor accounts. This consumer account sees MRP. You can still request a quotation and discuss it with OM PVRD.
             </p>
           ) : (
             <div className="mt-6">
-              <Button render={<Link href={`/login?next=${encodeURIComponent(`/products/${product.id}`)}`} />} size="lg" className="h-12 w-full sm:w-auto">
-                Sign in for trade price
-              </Button>
+              <AccountBenefits showActions next={`/products/${product.id}`} />
             </div>
           )}
+          {account ? (
+            <AddToQuotation
+              productId={product.id}
+              returnTo={`/products/${product.id}`}
+              options={product.variants.flatMap((variant) =>
+                variant.id
+                  ? [{ id: variant.id, label: [variant.size, variant.finish].filter(Boolean).join(" · ") || variant.name }]
+                  : [],
+              )}
+            />
+          ) : null}
           </div>
         </div>
       </section>
@@ -137,7 +96,7 @@ export default async function PublicProductPage({
       {more.length ? (
         <section className="mt-12">
           <h2 className="font-heading text-xl font-semibold text-primary">You may also like</h2>
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          <div className={cn(productGridClassName, "mt-5 lg:grid-cols-3")}>
             {more.map((item) => (
               <ProductCard key={item.id} product={item} trade={trade} />
             ))}

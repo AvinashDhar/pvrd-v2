@@ -1,6 +1,6 @@
 import { fallbackImage } from "@/lib/media";
 import { computeDisplayRate } from "@/lib/catalogue/fields";
-import { getCategory, getProduct, listProducts, publicCatalogue } from "@/lib/catalogue/queries";
+import { countProducts, getCategory, getProduct, listProducts, publicCatalogue } from "@/lib/catalogue/queries";
 
 export async function publicCategories() {
   const { categories } = await publicCatalogue();
@@ -14,9 +14,67 @@ export async function publicCategories() {
   }));
 }
 
-export async function publicProducts() {
-  const { products } = await publicCatalogue();
-  return products.map(toCard);
+export const cataloguePageSize = 24;
+export const catalogueBatchSize = 100;
+
+const publicList = { status: "active" as const, categoryStatus: "active" as const };
+
+export async function publicProductTotal() {
+  return countProducts(publicList);
+}
+
+export async function featuredPublicProducts(limit = 8) {
+  const rows = await listProducts({ ...publicList, sort: "created", dir: "desc", limit, offset: 0 });
+  return rows.map(toCard);
+}
+
+export async function pageCatalogue({
+  q,
+  category,
+  sort = "relevance",
+  trade = false,
+  limit,
+  offset,
+}: {
+  q?: string;
+  category?: string;
+  sort?: "relevance" | "name" | "price-asc" | "price-desc";
+  trade?: boolean;
+  limit: number;
+  offset: number;
+}) {
+  const categories = await publicCategories();
+  const match = category
+    ? categories.find((item) => item.slug === category || item.name.toLowerCase() === category.toLowerCase())
+    : undefined;
+  if (category && !match) return { items: [], total: 0 };
+
+  const filters = {
+    ...publicList,
+    q,
+    categoryId: match?.id,
+    ...catalogueSort(sort, trade),
+  };
+  const [rows, total] = await Promise.all([
+    listProducts({ ...filters, limit, offset }),
+    countProducts(filters),
+  ]);
+  return { items: rows.map(toCard), total };
+}
+
+export async function relatedPublicProducts(categoryId: string, excludeId: string) {
+  const shared = { ...publicList, excludeId, sort: "created", dir: "desc" as const, limit: 3, offset: 0 };
+  const sameCategory = await listProducts({ ...shared, categoryId });
+  const rows = sameCategory.length ? sameCategory : await listProducts(shared);
+  return rows.map(toCard);
+}
+
+function catalogueSort(sort: "relevance" | "name" | "price-asc" | "price-desc", trade: boolean) {
+  if (sort === "name") return { sort: "name", dir: "asc" as const };
+  if (sort === "price-asc" || sort === "price-desc") {
+    return { sort: trade ? "price" : "mrp", dir: sort === "price-asc" ? ("asc" as const) : ("desc" as const) };
+  }
+  return { sort: "created", dir: "desc" as const };
 }
 
 export async function publicBrands() {
@@ -30,27 +88,6 @@ export async function publicBrands() {
   }));
 }
 
-export async function filterCatalogue({
-  q,
-  category,
-}: {
-  q?: string;
-  category?: string;
-}) {
-  const categories = await publicCategories();
-  const match = category
-    ? categories.find((item) => item.slug === category || item.name.toLowerCase() === category.toLowerCase())
-    : undefined;
-  if (category && !match) return [];
-
-  const rows = await listProducts({
-    status: "active",
-    q,
-    categoryId: match?.id,
-  });
-  const visible = new Set(categories.map((item) => item.id));
-  return rows.filter((product) => visible.has(product.categoryId)).map(toCard);
-}
 
 export async function getPublicProduct(id: string) {
   const product = await getProduct(id);
@@ -66,6 +103,7 @@ export async function getPublicProduct(id: string) {
       categoryName: product.categoryName,
       image: product.image,
     }),
+    categoryId: product.categoryId,
     sku: product.sku || "",
     description: product.description,
     attributes: product.attributes,
@@ -80,16 +118,24 @@ export async function getPublicProduct(id: string) {
       formula: rate.formula,
       value: computeDisplayRate(rate.keys, product.attributes),
     })),
+    images: product.images.map((image) => image.url),
     variants: product.variants.map((variant) => {
       const stored = (variant.attributes ?? {}) as Record<string, unknown>;
+      const text = (key: string) => {
+        const value = stored[key];
+        return value == null || value === "" ? null : String(value);
+      };
       return {
+        id: variant.id,
         name: variant.name,
         finish: variant.finish,
         size: variant.size,
         price: variant.price,
         image: variant.imageUrl,
-        mrp: stored.mrp ? String(stored.mrp) : "",
-        points: stored.points ? String(stored.points) : "",
+        mrp: text("mrp") ?? "",
+        points: text("points") ?? "",
+        packing: text("Packing") ?? text("packing"),
+        unit: text("Unit") ?? text("unit"),
       };
     }),
   };

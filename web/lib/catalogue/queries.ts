@@ -1,4 +1,5 @@
-import { type AnyColumn, and, asc, count, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { cache } from "react";
+import { type AnyColumn, and, asc, count, desc, eq, exists, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   brandCategories,
@@ -16,6 +17,20 @@ import { ensureBuiltinSchemas } from "@/lib/categories/sync";
 function contains(column: AnyColumn, value: string) {
   const term = `%${value.replace(/[%_]/g, "").toLowerCase()}%`;
   return sql`lower(${column}) like ${term}`;
+}
+
+function variantMatches(value: string) {
+  return exists(
+    db
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(
+        and(
+          eq(productVariants.productId, products.id),
+          or(contains(productVariants.name, value), contains(productVariants.finish, value), contains(productVariants.size, value)),
+        ),
+      ),
+  );
 }
 
 export async function listCategories() {
@@ -123,10 +138,14 @@ export type ProductFilters = {
   categoryId?: string;
   brandId?: string;
   status?: string;
+  categoryStatus?: "active" | "inactive" | "hidden";
+  excludeId?: string;
   minPrice?: string;
   maxPrice?: string;
   sort?: string;
   dir?: string;
+  limit?: number;
+  offset?: number;
 };
 
 const productSortColumns = {
@@ -140,19 +159,34 @@ const productSortColumns = {
   created: products.createdAt,
 } as const;
 
-export async function listProducts(filters: ProductFilters = {}) {
+function productConditions(filters: ProductFilters) {
   const conditions = [];
   const q = filters.q?.trim();
   if (q) {
-    conditions.push(or(contains(products.name, q), contains(products.sku, q), contains(categories.name, q), contains(brands.name, q)));
+    conditions.push(
+      or(
+        contains(products.name, q),
+        contains(products.sku, q),
+        contains(products.description, q),
+        contains(categories.name, q),
+        contains(brands.name, q),
+        variantMatches(q),
+      ),
+    );
   }
   if (filters.categoryId) conditions.push(eq(products.categoryId, filters.categoryId));
   if (filters.brandId) conditions.push(eq(products.brandId, filters.brandId));
+  if (filters.excludeId) conditions.push(ne(products.id, filters.excludeId));
   if (filters.status && filters.status !== "all") conditions.push(eq(products.status, filters.status as "active"));
+  if (filters.categoryStatus) conditions.push(eq(categories.status, filters.categoryStatus));
   if (filters.minPrice) conditions.push(gte(products.price, filters.minPrice));
   if (filters.maxPrice) conditions.push(lte(products.price, filters.maxPrice));
+  return conditions;
+}
 
-  const rows = await db
+function productListQuery(filters: ProductFilters) {
+  const conditions = productConditions(filters);
+  return db
     .select({
       id: products.id,
       name: products.name,
@@ -171,8 +205,26 @@ export async function listProducts(filters: ProductFilters = {}) {
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(brands, eq(products.brandId, brands.id))
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(orderProducts(filters.sort, filters.dir));
+    .orderBy(...orderProducts(filters.sort, filters.dir));
+}
 
+export async function countProducts(filters: ProductFilters = {}) {
+  const conditions = productConditions(filters);
+  const [row] = await db
+    .select({ total: count() })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(brands, eq(products.brandId, brands.id))
+    .where(conditions.length ? and(...conditions) : undefined);
+  return Number(row?.total ?? 0);
+}
+
+export async function listProducts(filters: ProductFilters = {}) {
+  const limited =
+    filters.limit == null
+      ? productListQuery(filters)
+      : productListQuery(filters).limit(filters.limit).offset(Math.max(0, filters.offset ?? 0));
+  const rows = await limited;
   const images = await primaryImageMap(rows.map((row) => row.id));
   return rows.map((row) => ({ ...row, image: images.get(row.id) ?? fallbackImage }));
 }
@@ -210,6 +262,7 @@ export async function getProduct(id: string) {
       description: products.description,
       attributes: products.attributes,
       status: products.status,
+      launchedAt: products.launchedAt,
       createdAt: products.createdAt,
       categoryName: categories.name,
       categorySlug: categories.slug,
@@ -252,7 +305,8 @@ export async function getProduct(id: string) {
 
 function orderProducts(sort?: string, dir?: string) {
   const column = productSortColumns[sort as keyof typeof productSortColumns] ?? products.createdAt;
-  return dir === "asc" ? asc(column) : desc(column);
+  const primary = dir === "asc" ? asc(column) : desc(column);
+  return [primary, asc(products.id)];
 }
 
 export async function productAnalytics() {
@@ -332,14 +386,11 @@ async function primaryImageMap(ids: string[]) {
   return map;
 }
 
-export async function publicCatalogue() {
-  const [categoryRows, productRows, brandRows] = await Promise.all([
+export const publicCatalogue = cache(async function publicCatalogue() {
+  const [categoryRows, brandRows] = await Promise.all([
     listCategories(),
-    listProducts({ status: "active" }),
     listBrands({ status: "active" }),
   ]);
   const visibleCategories = categoryRows.filter((category) => category.status === "active");
-  const visibleIds = new Set(visibleCategories.map((category) => category.id));
-  const visibleProducts = productRows.filter((product) => visibleIds.has(product.categoryId));
-  return { categories: visibleCategories, products: visibleProducts, brands: brandRows };
-}
+  return { categories: visibleCategories, brands: brandRows };
+});
