@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { eq, inArray, sql } from "drizzle-orm";
 import { loadEnvLocal } from "./load-env";
+import { resolveCatalogueDataFile, resolvePublicImportPath } from "./local-assets";
 
 loadEnvLocal();
 process.env.PVRD_FORBID_R2 = "1";
@@ -38,14 +38,13 @@ function money(value: number) {
 }
 
 function publicFile(url: string) {
-  if (!url.startsWith("/") || url.includes("..")) return false;
-  return existsSync(resolve(process.cwd(), "public", decodeURIComponent(url.slice(1))));
+  return Boolean(resolvePublicImportPath(url));
 }
 
 async function main() {
-  const file = resolve(process.cwd(), "data/catalogue-2025.json");
+  const file = resolveCatalogueDataFile("catalogue-2025.json");
   const catalogue = JSON.parse(readFileSync(file, "utf8")) as CatalogueFile;
-  const matchesFile = resolve(process.cwd(), "data/marketing-matches.json");
+  const matchesFile = resolveCatalogueDataFile("marketing-matches.json");
   const marketing = existsSync(matchesFile)
     ? (JSON.parse(readFileSync(matchesFile, "utf8")) as { sku: string; image: string }[])
     : [];

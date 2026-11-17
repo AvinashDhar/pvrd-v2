@@ -1,2 +1,16 @@
 .DS_Store
 tmp/
+
+# Local-only requirements, screenshots, catalogue sources, and client uploads
+local-assets/
+
+# Legacy paths (in case anything is recreated outside local-assets/)
+product_images_from_client/
+release-pack/
+OM-PVRD-MVP-Release-Document.md
+OM-PVRD-MVP-Release-FlyingDevs.pdf
+Om Pvrd Admin Panel details.pdf
+Product Catalogue all 2025.pdf
+plan.md
+*.pdf
+!web/**/*.pdf

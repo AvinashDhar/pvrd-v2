@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract OM PVRD Catalogue 2025 products and photos into web/data and web/public/catalogue."""
+"""Extract OM PVRD Catalogue 2025 products and photos into local-assets/catalogues."""
 
 import json
 import re
@@ -10,9 +10,9 @@ from pathlib import Path
 import fitz
 
 ROOT = Path(__file__).resolve().parents[1]
-PDF = ROOT / "Product Catalogue all 2025.pdf"
-OUT_DIR = ROOT / "web" / "public" / "catalogue"
-DATA_PATH = ROOT / "web" / "data" / "catalogue-2025.json"
+PDF = ROOT / "local-assets" / "requirements" / "Product Catalogue all 2025.pdf"
+OUT_DIR = ROOT / "local-assets" / "catalogues" / "public" / "catalogue"
+DATA_PATH = ROOT / "local-assets" / "catalogues" / "data" / "catalogue-2025.json"
 
 HEADER_EXACT = {
     "curtain bracket": "curtain-brackets",

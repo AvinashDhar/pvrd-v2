@@ -38,6 +38,15 @@ yarn-error.log*
 /public/uploads/*
 !/public/uploads/.gitkeep
 
+# Local catalogue import photos/JSON live in ../local-assets/ (repo-root, gitignored)
+/public/catalogue/
+/public/marketing/
+/data/catalogue-2025.json
+/data/marketing-matches.json
+/data/products-100.json
+/data/products-100/
+/logo.jpeg
+
 # generated catalogue PDFs when R2 is not configured
 /storage/
 
