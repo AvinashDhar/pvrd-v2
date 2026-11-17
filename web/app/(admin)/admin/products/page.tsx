@@ -46,7 +46,7 @@ export default async function ProductsPage({
       <form action="/admin/products" className="pvrd-card grid min-w-0 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <label className="grid min-w-0 gap-1.5 xl:col-span-2">
           <span className="text-xs font-medium text-muted-foreground">Search</span>
-          <Input name="q" defaultValue={filters.q} placeholder="Name, SKU, category, brand" />
+          <Input name="q" defaultValue={filters.q} placeholder="Name, SKU, description, finish, size" />
         </label>
         <Select name="categoryId" label="Category" value={filters.categoryId} options={categories.map((category) => ({ value: category.id, label: category.name }))} />
         <Select name="brandId" label="Brand" value={filters.brandId} options={brands.map((brand) => ({ value: brand.id, label: brand.name }))} />
@@ -60,11 +60,11 @@ export default async function ProductsPage({
           </select>
         </label>
         <label className="grid min-w-0 gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground">Min price</span>
+          <span className="text-xs font-medium text-muted-foreground" title="Lowest trade price to include">Min trade price</span>
           <Input name="minPrice" type="number" min="0" defaultValue={filters.minPrice} />
         </label>
         <label className="grid min-w-0 gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground">Max price</span>
+          <span className="text-xs font-medium text-muted-foreground" title="Highest trade price to include">Max trade price</span>
           <Input name="maxPrice" type="number" min="0" defaultValue={filters.maxPrice} />
         </label>
         <div className="flex min-w-0 flex-wrap items-end gap-2">
@@ -82,7 +82,7 @@ export default async function ProductsPage({
       <ProductListForm>
       <div className="pvrd-card overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-          <select name="bulk" defaultValue="hidden" className="pvrd-select">
+          <select name="bulk" aria-label="Action for selected products" defaultValue="hidden" className="pvrd-select">
             <option value="hidden">Hide selected</option>
             <option value="inactive">Mark inactive</option>
             <option value="active">Mark active</option>
@@ -99,8 +99,8 @@ export default async function ProductsPage({
                 <SortHeader label="SKU" column="sku" sort={sort} dir={dir} filters={filters} />
                 <SortHeader label="Category" column="category" sort={sort} dir={dir} filters={filters} />
                 <SortHeader label="Brand" column="brand" sort={sort} dir={dir} filters={filters} />
-                <SortHeader label="MRP" column="mrp" sort={sort} dir={dir} filters={filters} />
-                <SortHeader label="Price" column="price" sort={sort} dir={dir} filters={filters} />
+                <SortHeader label="MRP" column="mrp" sort={sort} dir={dir} filters={filters} title="Public retail price, shown to everyone" />
+                <SortHeader label="Trade price" column="price" sort={sort} dir={dir} filters={filters} title="Dealer rate for retailers and carpenters" />
                 <SortHeader label="Status" column="status" sort={sort} dir={dir} filters={filters} />
                 <th className="px-4 py-3" />
               </tr>
@@ -109,7 +109,7 @@ export default async function ProductsPage({
               {items.map((product) => (
                 <tr key={product.id} className="pvrd-row">
                   <td className="px-4 py-3">
-                    <input type="checkbox" name="ids" value={product.id} aria-label={`Select ${product.name}`} />
+                    <input type="checkbox" className="pvrd-check" name="ids" value={product.id} aria-label={`Select ${product.name}`} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -139,8 +139,9 @@ export default async function ProductsPage({
       </div>
       </ProductListForm>
       {items.map((product) => (
-        <ConfirmForm id={`delete-${product.id}`} action={deleteProduct} message={`Delete ${product.name}? This cannot be undone.`}>
+        <ConfirmForm key={product.id} id={`delete-${product.id}`} action={deleteProduct} message={`Delete ${product.name}? This cannot be undone.`}>
           <input type="hidden" name="id" value={product.id} />
+          <input type="hidden" name="stay" value="1" />
         </ConfirmForm>
       ))}
     </div>
@@ -171,12 +172,14 @@ function SortHeader({
   sort,
   dir,
   filters,
+  title,
 }: {
   label: string;
   column: string;
   sort: string;
   dir: string;
   filters: Record<string, string | undefined>;
+  title?: string;
 }) {
   const nextDir = sort === column && dir === "asc" ? "desc" : "asc";
   const params = new URLSearchParams();
@@ -188,7 +191,7 @@ function SortHeader({
   const mark = sort === column ? (dir === "asc" ? " ↑" : " ↓") : "";
   return (
     <th className="px-4 py-3 font-medium">
-      <Link href={`/admin/products?${params.toString()}`} className="hover:text-primary">{label}{mark}</Link>
+      <Link href={`/admin/products?${params.toString()}`} title={title} className="hover:text-primary">{label}{mark}</Link>
     </th>
   );
 }

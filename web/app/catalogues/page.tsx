@@ -1,17 +1,25 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getUserSession } from "@/lib/auth/session";
+import { GuestOffer } from "@/components/catalogue/account-benefits";
 import { PageHero } from "@/components/catalogue/page-hero";
 import { MediaImage } from "@/components/catalogue/media-image";
 import { listCatalogueRows } from "@/lib/records";
 
 export default async function PublicCataloguesPage() {
-  const catalogues = (await listCatalogueRows()).filter((item) => item.status === "active");
+  const [rows, account] = await Promise.all([listCatalogueRows(), getUserSession()]);
+  const catalogues = rows.filter((item) => item.status === "active");
   return (
     <main className="pvrd-page">
       <PageHero
         title="Catalogues"
         description="Print-ready PDFs for each category. View a range here, or download it to share with retailers and keep on site."
       />
+      {account ? null : (
+        <div className="mt-5">
+          <GuestOffer next="/catalogues" />
+        </div>
+      )}
       {catalogues.length === 0 ? (
         <p className="mt-8 text-sm text-muted-foreground">No catalogues yet.</p>
       ) : (

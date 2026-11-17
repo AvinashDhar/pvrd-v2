@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useActionState } from "react";
-import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
+import { ActionForm, CheckField, FormBanner, FormField } from "@/components/action-form";
 import { NumberInput } from "@/components/number-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { saveBanner } from "@/lib/actions/banners";
 
@@ -46,12 +45,11 @@ export function BannerForm({
   const datesRequired = type === "homepage" || type === "promotional";
 
   return (
-    <ActionForm action={action} state={state} className="pvrd-card max-w-3xl space-y-4 p-4 sm:p-6">
+    <ActionForm action={action} state={state} autoComplete="off" className="pvrd-card max-w-3xl space-y-4 p-4 sm:p-6">
       {banner ? <input type="hidden" name="id" value={banner.id} /> : null}
       <FormBanner state={state} />
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <label className="grid min-w-0 gap-1.5">
-          <Label>Banner type</Label>
+        <FormField label="Banner type" name="type" state={state}>
           <select
             name="type"
             value={type}
@@ -61,99 +59,79 @@ export function BannerForm({
               if (next === "category") setLinkType("category");
             }}
             className="pvrd-select"
-            {...invalidProps(state, "type")}
           >
             <option value="homepage">Homepage</option>
             <option value="category">Category</option>
             <option value="promotional">Promotional</option>
           </select>
-          <FieldIssue state={state} name="type" />
-        </label>
-        <label className="grid min-w-0 gap-1.5">
-          <Label>Status</Label>
-          <select name="status" defaultValue={banner?.status === "inactive" ? "inactive" : "active"} className="pvrd-select" {...invalidProps(state, "status")}>
+        </FormField>
+        <FormField label="Status" name="status" state={state}>
+          <select name="status" defaultValue={banner?.status === "inactive" ? "inactive" : "active"} className="pvrd-select">
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-          <FieldIssue state={state} name="status" />
-        </label>
+        </FormField>
       </div>
-      <label className="grid gap-1.5">
-        <Label>Title</Label>
-        <Input name="title" defaultValue={banner?.title} required maxLength={200} {...invalidProps(state, "title")} />
-        <FieldIssue state={state} name="title" />
-      </label>
-      <label className="grid gap-1.5">
-        <Label>Description</Label>
-        <Textarea name="description" defaultValue={banner?.description ?? ""} required maxLength={2000} {...invalidProps(state, "description")} />
-        <FieldIssue state={state} name="description" />
-      </label>
-      <label className="grid gap-1.5">
-        <Label>{banner ? "Replace image" : "Banner image"}</Label>
-        <Input name="image" type="file" accept="image/png,image/jpeg,image/webp" required={!banner?.imageUrl} {...invalidProps(state, "image")} />
-        <FieldIssue state={state} name="image" />
-        <span className="text-xs text-muted-foreground">One new image is stored. Catalogue product photos stay on this server and are not uploaded.</span>
-        {banner?.imageUrl ? <img src={banner.imageUrl} alt="" className="mt-2 h-24 w-auto rounded-lg border border-border object-contain" /> : null}
-      </label>
+      <FormField label="Title" name="title" state={state} required>
+        <Input name="title" defaultValue={banner?.title} maxLength={200} />
+      </FormField>
+      <FormField label="Description" name="description" state={state} required hint="Enter adds a new line. Press Ctrl+Enter or ⌘+Enter to save.">
+        <Textarea name="description" defaultValue={banner?.description ?? ""} maxLength={2000} />
+      </FormField>
+      <FormField label={banner ? "Replace image" : "Banner image"} name="image" state={state} required={!banner?.imageUrl} hint="One new image is stored. Catalogue product photos stay on this server and are not uploaded.">
+        <Input name="image" type="file" accept="image/png,image/jpeg,image/webp" />
+      </FormField>
+      {banner?.imageUrl ? <img src={banner.imageUrl} alt="" className="h-24 w-auto rounded-lg border border-border object-contain" /> : null}
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <label className="grid min-w-0 gap-1.5">
-          <Label>Links to</Label>
+        <FormField
+          label="Links to"
+          name="linkType"
+          state={state}
+          hint={linkType === "offer" ? "Offer pages arrive in the next release. This choice is saved for then." : undefined}
+        >
           <select
             name="linkType"
             value={type === "category" ? "category" : linkType}
             onChange={(event) => setLinkType(event.target.value)}
             className="pvrd-select"
-            {...invalidProps(state, "linkType")}
           >
             {type === "category" ? null : <option value="none">Redirect link only</option>}
             <option value="category">Category</option>
             {type === "category" ? null : <option value="product">Product</option>}
             {type === "category" ? null : <option value="brand">Brand</option>}
-            {type === "category" ? null : <option value="offer">Offer</option>}
+            {type === "category" ? null : <option value="offer">Offer (next release)</option>}
           </select>
-          <FieldIssue state={state} name="linkType" />
-        </label>
+        </FormField>
         {type === "category" || linkType !== "none" ? (
-          <label className="grid min-w-0 gap-1.5">
-            <Label>{type === "category" ? "Category" : "Linked item"}</Label>
-            <select name="linkId" defaultValue={banner?.linkId ?? ""} required className="pvrd-select" {...invalidProps(state, "linkId")}>
+          <FormField label={type === "category" ? "Category" : "Linked item"} name="linkId" state={state} required>
+            <select name="linkId" defaultValue={banner?.linkId ?? ""} className="pvrd-select">
               <option value="">Choose</option>
               {options.map((option) => (
                 <option key={option.id} value={option.id}>{option.label}</option>
               ))}
             </select>
-            <FieldIssue state={state} name="linkId" />
-          </label>
+          </FormField>
         ) : (
           <input type="hidden" name="linkId" value="" />
         )}
       </div>
-      <label className="grid gap-1.5">
-        <Label>Redirect link {type === "promotional" ? "" : "(optional)"}</Label>
-        <Input name="redirectUrl" defaultValue={banner?.redirectUrl ?? ""} maxLength={500} placeholder="/products or https://…" {...invalidProps(state, "redirectUrl")} />
-        <FieldIssue state={state} name="redirectUrl" />
-      </label>
+      <FormField label={type === "promotional" ? "Redirect link" : "Redirect link (optional)"} name="redirectUrl" state={state}>
+        <Input name="redirectUrl" defaultValue={banner?.redirectUrl ?? ""} maxLength={500} placeholder="/products or https://…" />
+      </FormField>
       <div className="grid min-w-0 gap-4 sm:grid-cols-3">
-        <label className="grid min-w-0 gap-1.5">
-          <Label>Start date{datesRequired ? "" : " (optional)"}</Label>
-          <Input name="startAt" type="date" defaultValue={dateInput(banner?.startAt)} required={datesRequired} {...invalidProps(state, "startAt")} />
-          <FieldIssue state={state} name="startAt" />
-        </label>
-        <label className="grid min-w-0 gap-1.5">
-          <Label>End date{datesRequired ? "" : " (optional)"}</Label>
-          <Input name="endAt" type="date" defaultValue={dateInput(banner?.endAt)} required={datesRequired} {...invalidProps(state, "endAt")} />
-          <FieldIssue state={state} name="endAt" />
-        </label>
-        <label className="grid min-w-0 gap-1.5">
-          <Label>Display order</Label>
-          <NumberInput name="sortOrder" integer min={0} max={9999} step={1} defaultValue={banner?.sortOrder ?? 0} {...invalidProps(state, "sortOrder")} />
-          <FieldIssue state={state} name="sortOrder" />
-        </label>
+        <FormField label={datesRequired ? "Start date" : "Start date (optional)"} name="startAt" state={state} required={datesRequired}>
+          <Input name="startAt" type="date" defaultValue={dateInput(banner?.startAt)} />
+        </FormField>
+        <FormField label={datesRequired ? "End date" : "End date (optional)"} name="endAt" state={state} required={datesRequired}>
+          <Input name="endAt" type="date" defaultValue={dateInput(banner?.endAt)} />
+        </FormField>
+        <FormField label="Display order" name="sortOrder" state={state}>
+          <NumberInput name="sortOrder" integer min={0} max={9999} step={1} defaultValue={banner?.sortOrder ?? 0} />
+        </FormField>
       </div>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="notify" className="mt-1" />
-        <span>Create a draft notification with this banner. The same image is reused, so nothing extra is uploaded.</span>
-      </label>
+      <CheckField name="notify">
+        Create a draft notification with this banner. The same image is reused, so nothing extra is uploaded.
+      </CheckField>
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : banner ? "Save banner" : "Create banner"}</Button>
       </div>

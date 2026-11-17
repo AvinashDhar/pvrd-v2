@@ -10,7 +10,7 @@ export const starterFields: CategoryField[] = [
   { key: "name", label: "Product Name", type: "text", required: true },
   { key: "sku", label: "SKU / Product Code", type: "text", required: false },
   { key: "mrp", label: "MRP", type: "number", required: true },
-  { key: "price", label: "Price", type: "number", required: true },
+  { key: "price", label: "Trade price", type: "number", required: true },
   { key: "contractorDiscount", label: "Contractor Discount", type: "number", required: true },
   { key: "consumerDiscount", label: "Consumer Discount", type: "number", required: true },
   { key: "points", label: "Points", type: "number", required: false },
@@ -124,4 +124,26 @@ export function normalizeFields(input: unknown, lockCore = true) {
     }
   }
   return fields;
+}
+
+export function fieldChangeError(previous: CategoryField[], next: CategoryField[], stored: Record<string, string[]>) {
+  const nextByKey = new Map(next.map((field) => [field.key, field]));
+  for (const field of previous) {
+    const values = (stored[field.key] ?? []).map((value) => value.trim()).filter(Boolean);
+    if (values.length === 0) continue;
+    const updated = nextByKey.get(field.key);
+    const label = updated?.label || field.label;
+    if (!updated) return `${label} already has saved values on products in this category, so it cannot be removed.`;
+    if (updated.type !== field.type && (field.type === "image" || updated.type === "image" || values.some((value) => !valueFits(updated.type, value)))) {
+      return `${label} already has saved values, so it cannot change from ${field.type} to ${updated.type}.`;
+    }
+  }
+  return null;
+}
+
+function valueFits(type: FieldType, value: string) {
+  if (type === "number") return Number.isFinite(Number(value));
+  if (type === "checkbox") return value === "yes";
+  if (type === "image") return false;
+  return true;
 }

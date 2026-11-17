@@ -8,6 +8,7 @@ import { activityLogs, brandCategories, brands, newId } from "@/lib/db/schema";
 import { getAdminSession } from "@/lib/auth/session";
 import { getBrand } from "@/lib/catalogue/queries";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
+import { flash } from "@/lib/flash";
 import { formError } from "@/lib/forms";
 
 function refresh() {
@@ -76,6 +77,7 @@ export async function saveBrand(_previous: { error: string; field?: string } | n
     entityId: brandId,
   });
   refresh();
+  await flash("success", current ? "Brand updated." : "Brand added.");
   redirect(`/admin/brands/${brandId}`);
 }
 
@@ -84,9 +86,12 @@ export async function deleteBrand(formData: FormData) {
   if (!session) redirect("/login/admin");
   const id = String(formData.get("id") ?? "");
   const brand = await getBrand(id);
-  if (!brand) redirect("/admin/brands");
+  if (!brand) {
+    await flash("error", "That brand is no longer available.");
+    redirect("/admin/brands");
+  }
   if (brand.productCount > 0) {
-    redirect(`/admin/brands/${id}?error=${encodeURIComponent("This brand still has products, so it cannot be deleted.")}`);
+    return { error: "This brand still has products, so it cannot be deleted." };
   }
   await removeStoredImage(brand.logoUrl, brand.logoKey);
   await db.delete(brands).where(eq(brands.id, id));
@@ -96,5 +101,6 @@ export async function deleteBrand(formData: FormData) {
     entityId: id,
   });
   refresh();
+  await flash("success", `${brand.name} deleted.`);
   redirect("/admin/brands");
 }

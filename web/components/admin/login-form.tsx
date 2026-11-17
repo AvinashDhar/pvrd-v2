@@ -32,11 +32,11 @@ export function LoginForm() {
             Manage the OM PVRD catalogue from one quiet, fast workspace.
           </h1>
           <p className="mt-4 text-sm text-white/70">
-            Contractor rates, loyalty, products and campaigns — designed for hardware teams.
+            Products, catalogues, quotations and accounts — designed for hardware teams.
           </p>
         </div>
       </section>
-      <section className="flex items-center justify-center bg-background p-4 sm:p-6">
+      <section className="safe-screen flex items-center justify-center bg-background">
         <ActionForm className="pvrd-card w-full max-w-md space-y-4 p-5 sm:p-7" action={action} state={state}>
           <div className="lg:hidden">
             <PvrdLogo inverted className="mb-4" />

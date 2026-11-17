@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PvrdLogo } from "@/components/admin/logo";
+import { AccountBenefits } from "@/components/catalogue/account-benefits";
 import { loginUser } from "@/lib/actions/account";
 
 export function UserLoginForm({ notice, returnTo }: { notice?: string; returnTo?: string | null }) {
@@ -25,20 +26,23 @@ export function UserLoginForm({ notice, returnTo }: { notice?: string; returnTo?
             Sign in to your OM PVRD account.
           </h1>
           <p className="mt-4 text-sm text-white/70">
-            Keep your profile, and use the catalogue as a retailer, carpenter, or consumer.
+            Retailer, carpenter, and contractor accounts see the discounted trade price. Every signed-in account can request a quotation and discuss it with OM PVRD.
           </p>
         </div>
       </section>
-      <section className="flex items-center justify-center bg-background p-4 sm:p-6">
+      <section className="safe-screen flex items-center justify-center bg-background">
         <ActionForm className="pvrd-card w-full max-w-md space-y-4 p-5 sm:p-7" action={action} state={state}>
           <div className="lg:hidden">
             <PvrdLogo inverted className="mb-4" />
+          </div>
+          <div className="lg:hidden">
+            <AccountBenefits title="Sign in to use these benefits" />
           </div>
           <div>
             <h2 className="font-heading text-2xl font-semibold">Sign in</h2>
             <p className="text-sm text-muted-foreground">
               {returnTo
-                ? "Retailer and carpenter accounts see the trade price after signing in."
+                ? "After you sign in, retailer, carpenter, and contractor accounts see the trade price. You can also request a quotation and discuss it with OM PVRD."
                 : "Use the mobile number or email on your account."}
             </p>
           </div>

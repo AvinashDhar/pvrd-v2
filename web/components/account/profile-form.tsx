@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,9 @@ import { MediaImage } from "@/components/catalogue/media-image";
 export function ProfileForm({
   account,
   saved,
+  trade,
 }: {
+  trade: boolean;
   account: {
     name: string;
     email: string | null;
@@ -46,11 +49,28 @@ export function ProfileForm({
         </form>
       </div>
 
+      <div className="pvrd-card grid gap-3 p-5 sm:p-7">
+        <p className="pvrd-kicker">Your benefits</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {trade
+            ? "You are seeing discounted trade prices. Add sizes and quantities, request a quotation, then discuss it with OM PVRD."
+            : "You can request a quotation and discuss it with OM PVRD. Discounted trade prices are for retailer, carpenter, and contractor accounts. This consumer account sees MRP."}
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button render={<Link href="/quotations/bucket" />} size="lg" className="h-12">
+            Request quotation
+          </Button>
+          <Button render={<Link href="/quotations" />} variant="outline" size="lg" className="h-12">
+            Discuss with OM PVRD
+          </Button>
+        </div>
+      </div>
+
       <ActionForm className="pvrd-card grid gap-4 p-5 sm:p-7" action={action} state={state}>
         {account.photoUrl ? (
           <MediaImage src={account.photoUrl} alt="" className="size-20 rounded-full" sizes="80px" />
         ) : null}
-        {saved ? <p className="text-sm text-[#5f7a18]">Profile saved.</p> : null}
+        {saved ? <p role="status" className="text-sm text-[#5f7a18]">Profile saved.</p> : null}
         <div className="grid min-w-0 gap-4 sm:grid-cols-2">
           <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="name">Full name</Label>
@@ -72,12 +92,12 @@ export function ProfileForm({
             <FieldIssue state={state} name="city" />
           </div>
           <div className="grid min-w-0 gap-1.5">
-            <Label>Account type</Label>
-            <Input value={roleLabel(account.userType)} readOnly />
+            <Label htmlFor="userType">Account type</Label>
+            <Input id="userType" value={roleLabel(account.userType)} readOnly />
           </div>
           <div className="grid min-w-0 gap-1.5">
-            <Label>Status</Label>
-            <Input value={account.status} readOnly className="capitalize" />
+            <Label htmlFor="status">Status</Label>
+            <Input id="status" value={account.status} readOnly className="capitalize" />
           </div>
         </div>
         <div className="grid gap-1.5">
@@ -88,16 +108,16 @@ export function ProfileForm({
         <div className="grid min-w-0 gap-4 sm:grid-cols-2">
           <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="password">New password</Label>
-            <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} maxLength={128} {...invalidProps(state, "password")} />
+            <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} maxLength={128} {...invalidProps(state, "password", "password-hint")} />
             <FieldIssue state={state} name="password" />
           </div>
           <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="confirm">Confirm new password</Label>
-            <Input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={8} maxLength={128} {...invalidProps(state, "confirm")} />
+            <Input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={8} maxLength={128} {...invalidProps(state, "confirm", "password-hint")} />
             <FieldIssue state={state} name="confirm" />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">Leave the password fields blank to keep the current password.</p>
+        <p id="password-hint" className="text-xs text-muted-foreground">Leave the password fields blank to keep the current password.</p>
         <FormBanner state={state} />
         <Button type="submit" disabled={pending} className="w-fit">
           {pending ? "Saving…" : "Save profile"}

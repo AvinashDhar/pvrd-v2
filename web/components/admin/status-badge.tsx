@@ -14,6 +14,13 @@ const tones = {
   blocked: "bg-[#fdecec] text-[#c24141] ring-[#f4c7c7]",
   hidden: "bg-slate-100 text-slate-600 ring-slate-200",
   stale: "bg-[#f7f3e3] text-[#8a7424] ring-[#eadfb8]",
+  open: "bg-[#e8f0f6] text-[#003C6C] ring-[#c5d6e4]",
+  accepted: "bg-[#f3f8e4] text-[#5f7a18] ring-[#d7e8a8]",
+  declined: "bg-[#fdecec] text-[#c24141] ring-[#f4c7c7]",
+  available: "bg-[#f3f8e4] text-[#5f7a18] ring-[#d7e8a8]",
+  limited: "bg-[#f7f3e3] text-[#8a7424] ring-[#eadfb8]",
+  unavailable: "bg-[#fdecec] text-[#c24141] ring-[#f4c7c7]",
+  unspecified: "bg-slate-100 text-slate-600 ring-slate-200",
   closed: "bg-slate-100 text-slate-600 ring-slate-200",
   ended: "bg-slate-100 text-slate-600 ring-slate-200",
 } as const;

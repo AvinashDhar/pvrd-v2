@@ -8,13 +8,10 @@ import { getBrand, listCategories } from "@/lib/catalogue/queries";
 
 export default async function EditBrandPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
   const [brand, categories] = await Promise.all([getBrand(id), listCategories()]);
   if (!brand) notFound();
 
@@ -27,7 +24,6 @@ export default async function EditBrandPage({
           <Button type="submit" variant="destructive" disabled={brand.productCount > 0}>Delete</Button>
         </ConfirmForm>
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <p className="text-xs text-muted-foreground">{brand.productCount} products use this brand.</p>
       <BrandForm
         brand={brand}

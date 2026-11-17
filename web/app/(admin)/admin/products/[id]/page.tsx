@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { NotifyForm } from "@/components/admin/notify-form";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { MediaImage } from "@/components/catalogue/media-image";
@@ -29,11 +30,11 @@ export default async function ProductDetailPage({
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" render={<Link href="/admin/products" />}>All products</Button>
         <Button render={<Link href={`/admin/products/${product.id}/edit`} />}>Edit product</Button>
-        <form action={setProductStatus}>
+        <NotifyForm action={setProductStatus}>
           <input type="hidden" name="id" value={product.id} />
           <input type="hidden" name="status" value={product.status === "hidden" ? "active" : "hidden"} />
           <Button type="submit" variant="outline">{product.status === "hidden" ? "Restore" : "Hide"}</Button>
-        </form>
+        </NotifyForm>
         <ConfirmForm action={deleteProduct} message="Permanently delete this product and its images? This cannot be undone.">
           <input type="hidden" name="id" value={product.id} />
           <Button type="submit" variant="destructive">Delete</Button>
@@ -57,7 +58,7 @@ export default async function ProductDetailPage({
             {[
               ["Category", product.categoryName],
               ["MRP", formatINR(product.mrp)],
-              ["Price", formatINR(product.price)],
+              ["Trade price", formatINR(product.price)],
               ["Contractor discount", product.contractorDiscount ? `${product.contractorDiscount}%` : "—"],
               ["Consumer discount", product.consumerDiscount ? `${product.consumerDiscount}%` : "—"],
               ["Points", String(product.points ?? 0)],
@@ -94,7 +95,7 @@ export default async function ProductDetailPage({
           <table className="w-full text-sm">
             <thead className="bg-muted/60 text-left text-xs text-muted-foreground">
               <tr>
-                {["Variant", "Finish", "Size", "MRP", "Price", "Contractor", "Consumer", "Points"].map((column) => (
+                {["Variant", "Finish", "Size", "MRP", "Trade price", "Contractor", "Consumer", "Points"].map((column) => (
                   <th key={column} className="px-4 py-3 font-medium">{column}</th>
                 ))}
               </tr>

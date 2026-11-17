@@ -11,6 +11,7 @@ import {
   mysqlTable,
   primaryKey,
   text,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
 
@@ -129,6 +130,7 @@ export const products = mysqlTable(
     description: text("description"),
     attributes: json("attributes").$type<Record<string, unknown>>().default({}),
     status: visibility().default("active").notNull(),
+    launchedAt: datetime("launched_at", { mode: "date" }),
     createdAt: datetime("created_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
     updatedAt: datetime("updated_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
   },
@@ -137,6 +139,7 @@ export const products = mysqlTable(
     index("products_brand_idx").on(table.brandId),
     index("products_sku_idx").on(table.sku),
     index("products_status_idx").on(table.status),
+    index("products_launched_idx").on(table.launchedAt),
   ],
 );
 
@@ -190,12 +193,27 @@ export const notifications = mysqlTable("notifications", {
   imageKey: varchar("image_key", { length: 255 }),
   type: varchar("type", { length: 40 }).notNull(),
   audience: varchar("audience", { length: 40 }).notNull(),
+  linkId: varchar("link_id", { length: 36 }),
   redirectUrl: text("redirect_url"),
   status: varchar("status", { length: 40 }).notNull(),
   scheduledAt: datetime("scheduled_at", { mode: "date" }),
   recipientCount: int("recipient_count").default(0),
   createdAt: datetime("created_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
-});
+}, (table) => [index("notifications_link_idx").on(table.linkId)]);
+
+export const notificationReads = mysqlTable(
+  "notification_reads",
+  {
+    userId: ref("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    notificationId: ref("notification_id")
+      .notNull()
+      .references(() => notifications.id, { onDelete: "cascade" }),
+    readAt: datetime("read_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.notificationId] })],
+);
 
 export const offers = mysqlTable("offers", {
   id: id(),
@@ -347,6 +365,104 @@ export const reviewReplies = mysqlTable("review_replies", {
   createdAt: datetime("created_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
   updatedAt: datetime("updated_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
 });
+
+export const quotationStatuses = ["open", "closed"] as const;
+export const quotationOutcomes = ["pending", "accepted", "declined"] as const;
+export const quotationAvailabilities = ["unspecified", "available", "limited", "unavailable"] as const;
+export const quotationAuthorRoles = ["user", "admin"] as const;
+export const quotationMessageKinds = ["comment", "request", "accept", "decline", "close", "reopen", "availability"] as const;
+export type QuotationStatus = (typeof quotationStatuses)[number];
+export type QuotationOutcome = (typeof quotationOutcomes)[number];
+export type QuotationAvailability = (typeof quotationAvailabilities)[number];
+export type QuotationMessageKind = (typeof quotationMessageKinds)[number];
+
+/** One working list per account. Requesting a quotation copies these lines and clears them. */
+export const quotationBucketItems = mysqlTable(
+  "quotation_bucket_items",
+  {
+    id: id(),
+    userId: ref("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    productId: ref("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    variantId: ref("variant_id").references(() => productVariants.id, { onDelete: "cascade" }),
+    variantKey: varchar("variant_key", { length: 36 }).notNull().default(""),
+    quantity: int("quantity").notNull(),
+    createdAt: datetime("created_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
+    updatedAt: datetime("updated_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
+  },
+  (table) => [
+    index("quotation_bucket_user_idx").on(table.userId),
+    uniqueIndex("quotation_bucket_line_idx").on(table.userId, table.productId, table.variantKey),
+  ],
+);
+
+export const quotations = mysqlTable(
+  "quotations",
+  {
+    id: id(),
+    userId: ref("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reference: varchar("reference", { length: 20 }).notNull().unique(),
+    status: mysqlEnum("status", [...quotationStatuses]).default("open").notNull(),
+    outcome: mysqlEnum("outcome", [...quotationOutcomes]).default("pending").notNull(),
+    note: text("note"),
+    createdAt: datetime("created_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
+    updatedAt: datetime("updated_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
+    closedAt: datetime("closed_at", { mode: "date" }),
+  },
+  (table) => [
+    index("quotations_user_idx").on(table.userId),
+    index("quotations_status_idx").on(table.status),
+    index("quotations_created_idx").on(table.createdAt),
+  ],
+);
+
+export const quotationItems = mysqlTable(
+  "quotation_items",
+  {
+    id: id(),
+    quotationId: ref("quotation_id")
+      .notNull()
+      .references(() => quotations.id, { onDelete: "cascade" }),
+    productId: ref("product_id").references(() => products.id, { onDelete: "set null" }),
+    variantId: ref("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
+    productName: varchar("product_name", { length: 255 }).notNull(),
+    sku: varchar("sku", { length: 64 }),
+    finish: varchar("finish", { length: 120 }),
+    size: varchar("size", { length: 120 }),
+    unit: varchar("unit", { length: 40 }),
+    packing: varchar("packing", { length: 80 }),
+    quantity: int("quantity").notNull(),
+    unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull(),
+    priceLabel: varchar("price_label", { length: 16 }).notNull(),
+    availability: mysqlEnum("availability", [...quotationAvailabilities]).default("unspecified").notNull(),
+    leadTime: varchar("lead_time", { length: 120 }),
+    itemNote: text("item_note"),
+    sortOrder: int("sort_order").default(0).notNull(),
+  },
+  (table) => [index("quotation_items_quotation_idx").on(table.quotationId)],
+);
+
+export const quotationMessages = mysqlTable(
+  "quotation_messages",
+  {
+    id: id(),
+    quotationId: ref("quotation_id")
+      .notNull()
+      .references(() => quotations.id, { onDelete: "cascade" }),
+    authorRole: mysqlEnum("author_role", [...quotationAuthorRoles]).notNull(),
+    authorId: varchar("author_id", { length: 36 }).notNull(),
+    authorName: varchar("author_name", { length: 160 }).notNull(),
+    kind: mysqlEnum("kind", [...quotationMessageKinds]).notNull(),
+    body: text("body").notNull(),
+    createdAt: datetime("created_at", { mode: "date", fsp: 3 }).default(sql`(utc_timestamp(3))`).notNull(),
+  },
+  (table) => [index("quotation_messages_quotation_idx").on(table.quotationId, table.createdAt)],
+);
 
 export const analyticsEvents = mysqlTable(
   "analytics_events",

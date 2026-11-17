@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { accountStatuses, userSessions, users, type AccountStatus } from "@/lib/db/schema";
 import { getAdminSession } from "@/lib/auth/session";
 import { removeStoredImage } from "@/lib/storage/images";
+import type { ActionNotice } from "@/lib/forms";
 
 async function requireAdmin() {
   const session = await getAdminSession();
@@ -14,14 +15,14 @@ async function requireAdmin() {
   return session;
 }
 
-export async function setUserStatus(formData: FormData) {
+export async function setUserStatus(formData: FormData): Promise<ActionNotice | void> {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
-  if (!accountStatuses.includes(status as AccountStatus)) return;
+  if (!accountStatuses.includes(status as AccountStatus)) return { error: "Choose a valid account status." };
   if (status === "blocked" && reason.length < 3) {
-    redirect("/admin/users?error=reason");
+    return { error: "A block needs a short reason." };
   }
 
   await db
@@ -37,7 +38,9 @@ export async function setUserStatus(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
-  redirect("/admin/users");
+  if (status === "blocked") return { message: "Account blocked." };
+  if (status === "inactive") return { message: "Account deactivated." };
+  return { message: "Account is active." };
 }
 
 export async function deleteCatalogueUser(formData: FormData) {
@@ -48,10 +51,10 @@ export async function deleteCatalogueUser(formData: FormData) {
     .from(users)
     .where(eq(users.id, id))
     .limit(1);
-  if (!user) redirect("/admin/users");
+  if (!user) return { error: "That user is no longer available." };
 
   await db.delete(users).where(eq(users.id, id));
   await removeStoredImage(user.photoUrl, user.photoKey);
   revalidatePath("/admin/users");
-  redirect("/admin/users");
+  return { message: "User deleted." };
 }

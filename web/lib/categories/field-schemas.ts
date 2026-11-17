@@ -32,7 +32,7 @@ export type CategorySchema = {
 };
 
 /** Bump when built-in category fields change so stored schemas are refreshed once. */
-export const BUILTIN_SCHEMA_VERSION = 2;
+export const BUILTIN_SCHEMA_VERSION = 3;
 
 export const finishOptions = [
   "SS",
@@ -55,7 +55,7 @@ function finish(required: boolean): CategoryField {
 function variantRates(required = true): CategoryField[] {
   return [
     { key: "mrp", label: "MRP", type: "number", required },
-    { key: "price", label: "Price", type: "number", required },
+    { key: "price", label: "Trade price", type: "number", required },
     { key: "contractorDiscount", label: "Contractor Discount", type: "number", required },
     { key: "consumerDiscount", label: "Consumer Discount", type: "number", required },
   ];
@@ -79,7 +79,7 @@ const commonPricing: CategoryField[] = [
   { key: "name", label: "Product Name", type: "text", required: true },
   { key: "sku", label: "SKU / Product Code", type: "text", required: false },
   { key: "mrp", label: "MRP", type: "number", required: true },
-  { key: "price", label: "Price", type: "number", required: true },
+  { key: "price", label: "Trade price", type: "number", required: true },
   { key: "contractorDiscount", label: "Contractor Discount", type: "number", required: true },
   { key: "consumerDiscount", label: "Consumer Discount", type: "number", required: true },
   { key: "points", label: "Points", type: "number", required: false },
@@ -100,7 +100,7 @@ export const categorySchemas: CategorySchema[] = [
       { key: "image", label: "Upload Image", type: "image", required: true },
       { key: "name", label: "Name", type: "text", required: true },
       finish(true),
-      { key: "price", label: "Price", type: "number", required: true, copyFromParent: true },
+      { key: "price", label: "Trade price", type: "number", required: true, copyFromParent: true },
     ],
   },
   {
@@ -125,7 +125,7 @@ export const categorySchemas: CategorySchema[] = [
       { key: "name", label: "Name", type: "text", required: true },
       finish(true),
       { key: "size", label: "Size", type: "text", required: true, copyFromParent: true },
-      { key: "price", label: "Price", type: "number", required: true, copyFromParent: true },
+      { key: "price", label: "Trade price", type: "number", required: true, copyFromParent: true },
     ],
   },
   {
@@ -150,7 +150,7 @@ export const categorySchemas: CategorySchema[] = [
       { key: "name", label: "Name", type: "text", required: true },
       finish(true),
       { key: "size", label: "Size", type: "text", required: true, copyFromParent: true },
-      { key: "price", label: "Price", type: "number", required: true, copyFromParent: true },
+      { key: "price", label: "Trade price", type: "number", required: true, copyFromParent: true },
     ],
   },
   {
@@ -206,7 +206,7 @@ export const categorySchemas: CategorySchema[] = [
     variantFields: [
       { key: "name", label: "Name", type: "text", required: false },
       finish(false),
-      { key: "price", label: "Price", type: "number", required: false },
+      { key: "price", label: "Trade price", type: "number", required: false },
     ],
   },
   {

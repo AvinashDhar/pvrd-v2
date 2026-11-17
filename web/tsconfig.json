@@ -24,6 +24,7 @@
   },
   "include": [
     "next-env.d.ts",
+    "pdfkit-standard-fonts.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",

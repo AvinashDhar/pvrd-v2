@@ -1,22 +1,24 @@
 import Link from "next/link";
 import {
   Award,
+  BookOpen,
+  ClipboardList,
   FolderTree,
   Package,
   Plus,
   Search,
-  Store,
   Users,
-  UserRoundCog,
   Images,
   Boxes,
   Trash2,
   ArrowUpRight,
 } from "lucide-react";
+import { AttentionDot, QuotationAttentionMark } from "@/components/admin/quotation-attention";
 import { StatCard } from "@/components/admin/stat-card";
 import { Bars } from "@/components/admin/mini-chart";
 import { chartColors } from "@/lib/brand";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatNumber } from "@/lib/format";
+import { listAdminQuotations } from "@/lib/quotations/service";
 import { dashboardData } from "@/lib/records";
 
 const shortcuts = [
@@ -28,51 +30,151 @@ const shortcuts = [
   { href: "/admin/products", label: "Search Product", icon: Search, tone: "text-[#7FA82E] bg-[#f3f8e4]" },
 ];
 
+function countLabel(count: number, singular: string, plural = `${singular}s`) {
+  return `${formatNumber(count)} ${count === 1 ? singular : plural}`;
+}
+
+function MetricRow({ label, value, href, hint }: { label: string; value: number; href: string; hint?: string }) {
+  return (
+    <Link href={href} className="flex items-baseline justify-between gap-3 rounded-xl px-2 py-1.5 hover:bg-muted/70">
+      <span className="min-w-0">
+        <span className="block text-sm text-muted-foreground">{label}</span>
+        {hint ? <span className="block text-[11px] text-muted-foreground">{hint}</span> : null}
+      </span>
+      <span className="font-heading text-lg font-semibold tabular-nums">{formatNumber(value)}</span>
+    </Link>
+  );
+}
+
 export default async function DashboardPage() {
-  const stats = await dashboardData();
-  const pending = [
-    { label: "Users", value: stats.pendingUsers, href: "/admin/users" },
-    { label: "Contractors", value: stats.pendingContractors, href: "/admin/users" },
-    { label: "Retailers", value: stats.pendingRetailers, href: "/admin/users" },
-    { label: "Inquiries", value: stats.pendingInquiries, href: "/admin/inquiries" },
-    { label: "Hidden products", value: stats.hiddenProducts, href: "/admin/products" },
-  ];
+  const [stats, quotations] = await Promise.all([dashboardData(), listAdminQuotations({})]);
+  const urgent = quotations.filter((row) => row.attention);
+  const openQuotations = quotations.filter((row) => row.status === "open").length;
+  const acceptedQuotations = quotations.filter((row) => row.outcome === "accepted").length;
+  const closedQuotations = quotations.filter((row) => row.status === "closed").length;
+  const cataloguesWaiting = Math.max(stats.categories - stats.cataloguesGenerated, 0);
+  const pendingHint = [
+    stats.pendingRetailers ? countLabel(stats.pendingRetailers, "retailer") : "",
+    stats.pendingContractors ? countLabel(stats.pendingContractors, "contractor") : "",
+    stats.pendingConsumers ? countLabel(stats.pendingConsumers, "consumer") : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <StatCard label="Total Products" value={stats.products} icon={Package} tone="blue" delay={0} />
-        <StatCard label="Total Categories" value={stats.categories} icon={FolderTree} tone="green" delay={40} />
-        <StatCard label="Total Brands" value={stats.brands} icon={Award} tone="purple" delay={80} />
-        <StatCard label="Total Users" value={stats.users} icon={Users} tone="orange" delay={120} />
-        <StatCard label="Total Contractors" value={stats.contractors} icon={UserRoundCog} tone="teal" delay={160} />
-        <StatCard label="Total Retailers" value={stats.retailers} icon={Store} tone="teal" delay={200} />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.6fr_0.9fr]">
-        <div className="pvrd-card p-4 sm:p-5">
-          <div className="mb-4">
-            <h2 className="font-heading text-base font-semibold">Pending approvals</h2>
-            <p className="text-xs text-muted-foreground">Items waiting for an admin decision</p>
+      {urgent.length > 0 ? (
+        <section className="rounded-2xl bg-[#fff8e8] p-4 ring-1 ring-[#f0d48a] sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <AttentionDot />
+            <h2 className="font-heading text-base font-semibold text-[#6b4a00]">Handle these first</h2>
+            <span className="text-sm font-medium text-[#8a5a00]">{urgent.length}</span>
+            <Link href="/admin/quotations" className="ml-auto text-xs font-semibold text-[#6b4a00] hover:underline">
+              All quotations
+            </Link>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {pending.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="group rounded-2xl bg-muted/70 p-3.5 transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_8px_24px_rgba(0,44,84,0.08)]"
-              >
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-                <p className="mt-1 font-heading text-2xl font-semibold">{item.value}</p>
-                <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary">
-                  View all
-                  <ArrowUpRight className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
-                </p>
+          <p className="mb-3 text-sm text-[#8a5a00]">Open quotations with no reply from you yet. Ones you have already answered stay off this list.</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {urgent.map((row) => (
+              <Link key={row.id} href={`/admin/quotations/${row.id}`} className="pvrd-card flex flex-col gap-1.5 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-primary">{row.reference}</span>
+                  {row.attention ? <QuotationAttentionMark attention={row.attention} /> : null}
+                </div>
+                <p className="text-sm">{row.userName}</p>
+                <p className="line-clamp-2 text-xs text-muted-foreground">{row.summary || "No products"}</p>
               </Link>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total Products" value={stats.products} icon={Package} tone="blue" delay={0} />
+        <StatCard label="Total Categories" value={stats.categories} icon={FolderTree} tone="green" delay={40} />
+        <StatCard label="Total Brands" value={stats.brands} icon={Award} tone="purple" delay={80} />
+        <StatCard label="Hidden products" value={stats.hiddenProducts} icon={Package} tone="orange" delay={120} />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="pvrd-card flex flex-col p-4 sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-heading text-base font-semibold">Accounts</h2>
+              <p className="text-xs text-muted-foreground">Retailers, contractors, and consumers</p>
+            </div>
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#f3f8e4] text-[#5f7a18]">
+              <Users className="size-5" />
+            </span>
+          </div>
+          <p className="font-heading text-3xl font-semibold tracking-tight tabular-nums">{formatNumber(stats.users)}</p>
+          <p className="text-xs text-muted-foreground">Total accounts</p>
+          <div className="mt-3">
+            <MetricRow label="Retailers" value={stats.retailers} href="/admin/users?type=retailer" />
+            <MetricRow label="Contractors" value={stats.contractors} href="/admin/users?type=contractor" />
+            <MetricRow label="Consumers" value={stats.consumers} href="/admin/users?type=consumer" />
+            <MetricRow
+              label="Waiting for approval"
+              value={stats.pendingUsers}
+              href="/admin/users?status=pending"
+              hint={stats.pendingUsers > 0 ? pendingHint : "None waiting"}
+            />
+          </div>
+          <Link href="/admin/users" className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-semibold text-primary">
+            View accounts
+            <ArrowUpRight className="size-3" />
+          </Link>
         </div>
 
+        <div className="pvrd-card flex flex-col p-4 sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-heading text-base font-semibold">Quotations</h2>
+              <p className="text-xs text-muted-foreground">Price requests from signed-in accounts</p>
+            </div>
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#e8f0f6] text-[#003C6C]">
+              <ClipboardList className="size-5" />
+            </span>
+          </div>
+          <p className="font-heading text-3xl font-semibold tracking-tight tabular-nums">{formatNumber(quotations.length)}</p>
+          <p className="text-xs text-muted-foreground">Total quotations</p>
+          <div className="mt-3">
+            <MetricRow label="Awaiting your reply" value={urgent.length} href="/admin/quotations" hint={urgent.length > 0 ? "Open, and you have not answered yet" : "Nothing waiting on you"} />
+            <MetricRow label="Open" value={openQuotations} href="/admin/quotations?status=open" />
+            <MetricRow label="Accepted" value={acceptedQuotations} href="/admin/quotations?outcome=accepted" />
+            <MetricRow label="Closed" value={closedQuotations} href="/admin/quotations?status=closed" />
+          </div>
+          <Link href="/admin/quotations" className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-semibold text-primary">
+            View quotations
+            <ArrowUpRight className="size-3" />
+          </Link>
+        </div>
+
+        <div className="pvrd-card flex flex-col p-4 sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-heading text-base font-semibold">Catalogues</h2>
+              <p className="text-xs text-muted-foreground">Print-ready PDFs, one per category</p>
+            </div>
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#e8f0f6] text-[#185478]">
+              <BookOpen className="size-5" />
+            </span>
+          </div>
+          <p className="font-heading text-3xl font-semibold tracking-tight tabular-nums">{formatNumber(stats.cataloguesGenerated)}</p>
+          <p className="text-xs text-muted-foreground">PDFs generated</p>
+          <div className="mt-3">
+            <MetricRow label="Waiting for a PDF" value={cataloguesWaiting} href="/admin/catalogues" hint="Categories with no stored file" />
+            <MetricRow label="Out of date" value={stats.cataloguesStale} href="/admin/catalogues" hint="Products changed since the PDF was generated" />
+            <MetricRow label="Categories" value={stats.categories} href="/admin/categories" />
+          </div>
+          <Link href="/admin/catalogues" className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-semibold text-primary">
+            Manage catalogues
+            <ArrowUpRight className="size-3" />
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-3">
         <div className="pvrd-card p-4 sm:p-5">
           <h2 className="font-heading text-base font-semibold">Recent activities</h2>
           {stats.activity.length === 0 ? (
@@ -91,9 +193,6 @@ export default async function DashboardPage() {
             </ol>
           )}
         </div>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
         <div className="pvrd-card p-4 sm:p-5">
           <h2 className="mb-4 font-heading text-base font-semibold">Top categories</h2>
           {stats.topCategories.some((item) => item.value > 0) ? (

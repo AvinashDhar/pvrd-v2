@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { count, desc, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { db } from "@/lib/db";
@@ -52,16 +53,19 @@ export async function dashboardData() {
       total: count(),
       retailers: sql<number>`sum(case when ${users.userType} = 'retailer' then 1 else 0 end)`,
       contractors: sql<number>`sum(case when ${users.userType} = 'contractor' then 1 else 0 end)`,
+      consumers: sql<number>`sum(case when ${users.userType} = 'consumer' then 1 else 0 end)`,
       pending: sql<number>`sum(case when ${users.status} = 'pending' then 1 else 0 end)`,
       pendingRetailers: sql<number>`sum(case when ${users.status} = 'pending' and ${users.userType} = 'retailer' then 1 else 0 end)`,
       pendingContractors: sql<number>`sum(case when ${users.status} = 'pending' and ${users.userType} = 'contractor' then 1 else 0 end)`,
+      pendingConsumers: sql<number>`sum(case when ${users.status} = 'pending' and ${users.userType} = 'consumer' then 1 else 0 end)`,
     })
     .from(users);
-  const [inquiryTotals] = await db
+  const [catalogueTotals] = await db
     .select({
-      pending: sql<number>`sum(case when ${inquiries.status} = 'pending' then 1 else 0 end)`,
+      generated: sql<number>`sum(case when ${catalogues.pdfUrl} is not null and ${catalogues.pdfUrl} <> '' then 1 else 0 end)`,
+      stale: sql<number>`sum(case when ${catalogues.status} = 'stale' and ${catalogues.pdfUrl} is not null and ${catalogues.pdfUrl} <> '' then 1 else 0 end)`,
     })
-    .from(inquiries);
+    .from(catalogues);
   const activity = await db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)).limit(8);
   const topCategories = await db
     .select({ label: categories.name, value: count(products.id) })
@@ -86,10 +90,13 @@ export async function dashboardData() {
     users: asNumber(userTotals?.total),
     retailers: asNumber(userTotals?.retailers),
     contractors: asNumber(userTotals?.contractors),
+    consumers: asNumber(userTotals?.consumers),
     pendingUsers: asNumber(userTotals?.pending),
     pendingRetailers: asNumber(userTotals?.pendingRetailers),
     pendingContractors: asNumber(userTotals?.pendingContractors),
-    pendingInquiries: asNumber(inquiryTotals?.pending),
+    pendingConsumers: asNumber(userTotals?.pendingConsumers),
+    cataloguesGenerated: asNumber(catalogueTotals?.generated),
+    cataloguesStale: asNumber(catalogueTotals?.stale),
     activity,
     topCategories: topCategories.map((row) => ({ label: row.label, value: asNumber(row.value) })),
     topBrands: topBrands.map((row) => ({ label: row.label, value: asNumber(row.value) })),
@@ -138,9 +145,9 @@ export async function listNotificationRows() {
   return db.select().from(notifications).orderBy(desc(notifications.createdAt));
 }
 
-export async function listOfferRows() {
+export const listOfferRows = cache(async function listOfferRows() {
   return db.select().from(offers).orderBy(desc(offers.startAt));
-}
+});
 
 export function offerIsCurrent(offer: { status: string; startAt: Date | string | null; endAt: Date | string | null }) {
   if (offer.status !== "active") return false;

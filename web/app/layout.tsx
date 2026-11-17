@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { connection } from "next/server";
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
@@ -14,6 +15,13 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+};
 
 export const metadata: Metadata = {
   title: {
@@ -32,6 +40,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${plusJakarta.variable} ${geistMono.variable} h-full`}
     >
       <body className="min-h-full bg-background font-sans text-foreground antialiased">
+        <Script id="pvrd-boot" strategy="beforeInteractive">
+          {"window.__pvrdBoot=Date.now()"}
+        </Script>
         <Providers>{children}</Providers>
       </body>
     </html>

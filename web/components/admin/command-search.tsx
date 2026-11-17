@@ -12,6 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { beginAppNavigation } from "@/components/brand/navigation-signal";
 import { adminNav } from "@/lib/nav";
 import type { AdminSearchIndex } from "@/lib/records";
 
@@ -32,6 +33,7 @@ export function CommandSearch({ search }: { search: AdminSearchIndex }) {
 
   const go = (href: string) => {
     setOpen(false);
+    beginAppNavigation(href);
     router.push(href);
   };
 
@@ -58,14 +60,15 @@ export function CommandSearch({ search }: { search: AdminSearchIndex }) {
       </button>
       <CommandDialog open={open} onOpenChange={setOpen} title="Search">
         <Command>
-        <CommandInput placeholder="Jump to a page, product, brand or user..." />
+        <CommandInput aria-label="Search" placeholder="Jump to a page, product, brand or user..." />
         <CommandList>
           <CommandEmpty>No matches found.</CommandEmpty>
           <CommandGroup heading="Modules">
             {adminNav.map((item) => (
               <CommandItem key={item.href} onSelect={() => go(item.href)}>
                 <item.icon />
-                {item.title}
+                <span className="flex-1">{item.title}</span>
+                {item.upcoming ? <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">Next release</span> : null}
               </CommandItem>
             ))}
           </CommandGroup>

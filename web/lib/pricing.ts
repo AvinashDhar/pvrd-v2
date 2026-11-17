@@ -3,6 +3,23 @@ export function isTradeAccount(userType: string | null | undefined) {
   return userType === "retailer" || userType === "contractor";
 }
 
+/** Labels and explanations for the two stored amounts. Keyed by product field. */
+export const pricingFieldHelp = {
+  mrp: {
+    label: "MRP",
+    tooltip: "Public retail price. Guests and consumers see this on the catalogue.",
+  },
+  price: {
+    label: "Trade price",
+    tooltip: "Dealer rate. Only signed-in retailers and carpenters see this.",
+  },
+} as const;
+
+export function pricingFieldLabel(key: string, fallback: string) {
+  if (key === "mrp" || key === "price") return pricingFieldHelp[key].label;
+  return fallback;
+}
+
 export function moneyAmount(value: number | string | null | undefined) {
   if (value == null || value === "") return null;
   const amount = typeof value === "number" ? value : Number(value);

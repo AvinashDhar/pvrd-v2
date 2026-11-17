@@ -1,5 +1,6 @@
 import { absoluteUrl, requestAccount } from "@/lib/api/http";
 import type { CatalogueAccount } from "@/lib/auth/session";
+import { groupVariants, variantRowDetail, variantRowLabel, type CatalogueVariant } from "@/lib/catalogue/variants";
 import { isTradeAccount } from "@/lib/pricing";
 
 const privateAttributeKeys = new Set(["price", "contractorDiscount", "consumerDiscount"]);
@@ -48,15 +49,8 @@ export function presentProduct(
     description: string | null;
     specs: { key: string; label: string; value: string }[];
     displayRates: { label: string; formula: string; value: string | null }[];
-    variants: {
-      name: string;
-      finish: string | null;
-      size: string | null;
-      price: string | null;
-      image: string | null;
-      mrp: string;
-      points: string;
-    }[];
+    images?: string[];
+    variants: CatalogueVariant[];
   },
   trade: boolean,
   request: Request,
@@ -66,23 +60,53 @@ export function presentProduct(
     .map(({ label, value }) => ({ label, value }));
   const variants = product.variants.map((variant) => {
     const image = absoluteUrl(request, variant.image);
-    if (!trade) {
-      return {
-        name: variant.name,
-        finish: variant.finish,
-        size: variant.size,
-        image,
-        mrp: variant.mrp,
-        points: variant.points,
-      };
-    }
-    return { ...variant, image };
+    const shared = {
+      id: variant.id ?? null,
+      name: variant.name,
+      finish: variant.finish,
+      size: variant.size,
+      image,
+      mrp: variant.mrp,
+      points: variant.points,
+      packing: variant.packing,
+      unit: variant.unit,
+    };
+    return trade ? { ...shared, price: variant.price } : shared;
   });
+  const grouped = groupVariants(product.variants);
+  const variantGroups = {
+    groupBy: grouped.groupBy,
+    groups: grouped.groups.map((group) => ({
+      label: group.label,
+      items: group.items.map((variant) => {
+        const image = absoluteUrl(request, variant.image);
+        const item = {
+          id: variant.id ?? null,
+          label: variantRowLabel(variant, grouped.groupBy),
+          detail: variantRowDetail(variant, grouped.groupBy),
+          name: variant.name,
+          finish: variant.finish,
+          size: variant.size,
+          image,
+          mrp: variant.mrp,
+          points: variant.points,
+          packing: variant.packing,
+          unit: variant.unit,
+        };
+        return trade ? { ...item, price: variant.price } : item;
+      }),
+    })),
+  };
+  const images = (product.images?.length ? product.images : [product.image]).map(
+    (src) => absoluteUrl(request, src) ?? src,
+  );
   return {
     ...presentCard(product, trade, request),
     description: product.description,
+    images,
     specs,
     displayRates: product.displayRates,
     variants,
+    variantGroups,
   };
 }

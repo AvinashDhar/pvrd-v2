@@ -13,7 +13,11 @@ export function NumberInput({ integer = false, onKeyDown, onBeforeInput, ...prop
       type="number"
       inputMode={integer ? "numeric" : "decimal"}
       onKeyDown={(event) => {
-        if (event.key === "e" || event.key === "E" || event.key === "+" || (integer && event.key === ".")) {
+        if (event.metaKey || event.ctrlKey || event.altKey) {
+          onKeyDown?.(event);
+          return;
+        }
+        if (event.key === "e" || event.key === "E" || event.key === "+" || (integer && (event.key === "." || event.key === ","))) {
           event.preventDefault();
         }
         onKeyDown?.(event);

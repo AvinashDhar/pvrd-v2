@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
+import { ActionForm, FormBanner, FormField } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,29 +32,23 @@ export function CategoryForm({
   const [rates, setRates] = useState<DisplayRate[]>(category?.displayRates ?? []);
 
   return (
-    <ActionForm action={action} state={state} className="pvrd-card max-w-4xl space-y-5 p-4 sm:p-6">
+    <ActionForm action={action} state={state} autoComplete="off" className="pvrd-card max-w-4xl space-y-5 p-4 sm:p-6">
       {category ? <input type="hidden" name="id" value={category.id} /> : null}
       <FormBanner state={state} />
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <label className="grid min-w-0 gap-1.5">
-          <Label>Category name</Label>
-          <Input name="name" defaultValue={category?.name} required maxLength={160} {...invalidProps(state, "name")} />
-          <FieldIssue state={state} name="name" />
-        </label>
-        <label className="grid min-w-0 gap-1.5">
-          <Label>Status</Label>
-          <select name="status" defaultValue={category?.status ?? "active"} className="pvrd-select" {...invalidProps(state, "status")}>
+        <FormField label="Category name" name="name" state={state} required>
+          <Input name="name" defaultValue={category?.name} maxLength={160} />
+        </FormField>
+        <FormField label="Status" name="status" state={state}>
+          <select name="status" defaultValue={category?.status ?? "active"} className="pvrd-select">
             <option value="active">Active</option>
             <option value="hidden">Hidden</option>
           </select>
-          <FieldIssue state={state} name="status" />
-        </label>
+        </FormField>
       </div>
-      <label className="grid gap-1.5">
-        <Label>Description</Label>
-        <Textarea name="description" defaultValue={category?.description ?? ""} maxLength={2000} {...invalidProps(state, "description")} />
-        <FieldIssue state={state} name="description" />
-      </label>
+      <FormField label="Description" name="description" state={state} hint="Enter adds a new line. Press Ctrl+Enter or ⌘+Enter to save.">
+        <Textarea name="description" defaultValue={category?.description ?? ""} maxLength={2000} />
+      </FormField>
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <Label>Display rates</Label>
@@ -72,7 +66,18 @@ export function CategoryForm({
           <p className="text-xs text-muted-foreground">No display rate. Add one when a size should be shown as a calculated measurement.</p>
         ) : (
           rates.map((rate, index) => (
-            <div key={`${rate.label}-${index}`} className="grid gap-2 rounded-xl bg-muted/50 p-3 sm:grid-cols-[minmax(0,0.6fr)_minmax(0,1fr)_auto]">
+            <div
+              key={`${rate.label}-${index}`}
+              className="grid gap-2 rounded-xl bg-muted/50 p-3 sm:grid-cols-[minmax(0,0.6fr)_minmax(0,1fr)_auto]"
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+                if (!(event.target instanceof HTMLInputElement)) return;
+                event.preventDefault();
+                const items = [...event.currentTarget.querySelectorAll<HTMLElement>("input, button")].filter((item) => !item.hasAttribute("disabled"));
+                const next = items[items.indexOf(event.target) + 1];
+                next?.focus();
+              }}
+            >
               <Input
                 value={rate.label}
                 aria-label="Display rate label"
@@ -98,7 +103,7 @@ export function CategoryForm({
           invalid={state?.field === "image"}
           label={category ? "Replace image" : "Category image"}
         />
-        <FieldIssue state={state} name="image" />
+        {state?.field === "image" && state.error ? <p id="image-error" role="alert" className="text-sm text-destructive">{state.error}</p> : null}
         {removed ? <input type="hidden" name="removeImage" value="1" /> : null}
         {category?.imageUrl && !removed ? (
           <div className="flex items-end gap-3">
@@ -109,11 +114,12 @@ export function CategoryForm({
       </div>
       <div className="space-y-2">
         <FieldListEditor name="fields" title="Product fields" initial={category?.fields ?? starterFields} />
-        <FieldIssue state={state} name="fields" />
+        {state?.field === "fields" && state.error ? <p id="fields-error" role="alert" className="text-sm text-destructive">{state.error}</p> : null}
       </div>
       <FieldListEditor name="variantFields" title="Variant fields" initial={category?.variantFields ?? []} />
+      {state?.field === "variantFields" && state.error ? <p id="variantFields-error" role="alert" className="text-sm text-destructive">{state.error}</p> : null}
       <p className="text-xs text-muted-foreground">
-        New fields show empty on existing products. Removed fields disappear from the form, and saved values stay in the database until a product is edited.
+        Saved products keep their values. New fields start empty on those products and appear for every product added after this save. A field that already has saved values cannot be removed, and its type can change only when those values still fit.
       </p>
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>{pending ? "Saving…" : category ? "Save category" : "Create category"}</Button>

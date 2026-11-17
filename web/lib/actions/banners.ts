@@ -8,6 +8,7 @@ import { activityLogs, banners, newId, notifications } from "@/lib/db/schema";
 import { getAdminSession } from "@/lib/auth/session";
 import { bannerLinkTypes, bannerTypes, getBanner, type BannerLinkType, type BannerType } from "@/lib/banners/queries";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
+import { flash } from "@/lib/flash";
 import { formError } from "@/lib/forms";
 
 async function removeBannerImage(url: string | null, key: string) {
@@ -130,6 +131,7 @@ export async function saveBanner(_previous: { error: string; field?: string } | 
     entityId: bannerId,
   });
   refresh();
+  await flash("success", current ? "Banner updated." : "Banner added.");
   redirect(`/admin/banners/${bannerId}`);
 }
 
@@ -139,7 +141,9 @@ export async function setBannerStatus(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   const banner = await getBanner(id);
-  if (!banner || !["active", "inactive"].includes(status)) redirect("/admin/banners");
+  if (!banner || !["active", "inactive"].includes(status)) {
+    return { error: "That banner could not be updated." };
+  }
   await db.update(banners).set({ status: status as "active" | "inactive" }).where(eq(banners.id, id));
   await db.insert(activityLogs).values({
     title: `${session.name} set banner ${banner.title} to ${status}`,
@@ -147,7 +151,8 @@ export async function setBannerStatus(formData: FormData) {
     entityId: id,
   });
   refresh();
-  redirect(`/admin/banners/${id}`);
+  revalidatePath(`/admin/banners/${id}`);
+  return { message: status === "active" ? `${banner.title} is enabled.` : `${banner.title} is disabled.` };
 }
 
 export async function deleteBanner(formData: FormData) {
@@ -155,7 +160,10 @@ export async function deleteBanner(formData: FormData) {
   if (!session) redirect("/login/admin");
   const id = String(formData.get("id") ?? "");
   const banner = await getBanner(id);
-  if (!banner) redirect("/admin/banners");
+  if (!banner) {
+    await flash("error", "That banner is no longer available.");
+    redirect("/admin/banners");
+  }
 
   if (banner.imageKey) await removeBannerImage(banner.imageUrl, banner.imageKey);
 
@@ -166,5 +174,6 @@ export async function deleteBanner(formData: FormData) {
     entityId: id,
   });
   refresh();
+  await flash("success", `${banner.title} deleted.`);
   redirect("/admin/banners");
 }

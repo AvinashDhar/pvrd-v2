@@ -4,7 +4,8 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminHeader } from "@/components/admin/header";
-import { adminNav, isNavActive } from "@/lib/nav";
+import { NextReleaseFrame } from "@/components/brand/next-release";
+import { adminNav, isNavActive, isUpcomingAdminPath } from "@/lib/nav";
 import type { AdminSearchIndex } from "@/lib/records";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
@@ -48,28 +49,33 @@ export function AdminShell({
   children,
   admin,
   search,
+  awaiting = 0,
 }: {
   children: React.ReactNode;
   admin: { name: string; email: string };
   search: AdminSearchIndex;
+  awaiting?: number;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const meta = resolveMeta(pathname);
   const subtitle = pathname === "/admin" ? `Welcome back, ${admin.name}` : meta.subtitle;
+  const upcoming = isUpcomingAdminPath(pathname);
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="sticky top-0 hidden h-screen w-[260px] shrink-0 overflow-hidden lg:block">
-        <AdminSidebar />
+    <div className="flex min-h-dvh bg-background">
+      <div className="sticky top-0 hidden h-dvh w-[260px] shrink-0 overflow-hidden lg:block">
+        <AdminSidebar awaiting={awaiting} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <AdminHeader title={meta.title} subtitle={subtitle} admin={admin} search={search} onMenu={() => setOpen(true)} />
-        <main className="page-enter min-w-0 flex-1 px-4 py-5 sm:px-5 md:px-6 md:py-6 lg:px-8">{children}</main>
+        <AdminHeader title={meta.title} subtitle={subtitle} admin={admin} search={search} awaiting={awaiting} onMenu={() => setOpen(true)} />
+        <main className="safe-gutter page-enter min-w-0 flex-1 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] md:pt-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]">
+          {upcoming ? <NextReleaseFrame title={meta.title}>{children}</NextReleaseFrame> : children}
+        </main>
       </div>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-[260px] border-0 p-0" showCloseButton={false}>
-          <AdminSidebar onNavigate={() => setOpen(false)} />
+          <AdminSidebar awaiting={awaiting} onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
     </div>

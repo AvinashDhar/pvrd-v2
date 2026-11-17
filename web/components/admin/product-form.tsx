@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useActionState } from "react";
-import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
+import { ActionForm, CheckField, FieldIssue, FieldTip, FormBanner, FormField, RequiredMark } from "@/components/action-form";
 import { NumberInput } from "@/components/number-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageDropzone } from "@/components/admin/image-dropzone";
 import { saveProduct } from "@/lib/actions/products";
+import { pricingFieldHelp } from "@/lib/pricing";
 import { computeDisplayRate } from "@/lib/catalogue/fields";
 import type { CategoryField, DisplayRate } from "@/lib/categories/field-schemas";
 
@@ -70,6 +71,9 @@ export function ProductForm({
     variants: FormVariant[];
   };
 }) {
+  const formId = useId();
+  const imageFocus = useRef<{ id: string; action: "up" | "down" | "remove" | "picker" } | null>(null);
+  const variantFocus = useRef<number | "add" | null>(null);
   const [state, action, pending] = useActionState(saveProduct, null);
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? "");
   const [name, setName] = useState(product?.name ?? "");
@@ -89,6 +93,39 @@ export function ProductForm({
   const extraFields = (category?.fields ?? []).filter((field) => !columnKeys.has(field.key));
   const groups = groupFields(extraFields);
   const rates = category?.displayRates ?? [];
+
+  useEffect(() => {
+    const pendingFocus = imageFocus.current;
+    if (!pendingFocus) return;
+    imageFocus.current = null;
+    if (pendingFocus.action === "picker" || !pendingFocus.id) {
+      document.getElementById(`${formId}-images`)?.focus();
+      return;
+    }
+    const card = document.querySelector<HTMLElement>(`[data-image-id="${cssEscape(pendingFocus.id)}"]`);
+    if (!card) {
+      document.getElementById(`${formId}-images`)?.focus();
+      return;
+    }
+    if (pendingFocus.action === "remove") {
+      card.querySelector<HTMLElement>('[data-image-action="remove"]')?.focus();
+      return;
+    }
+    const preferred = card.querySelector<HTMLElement>(`[data-image-action="${pendingFocus.action}"]:not(:disabled)`);
+    const fallback = card.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled)");
+    (preferred ?? fallback)?.focus();
+  }, [images, formId]);
+
+  useEffect(() => {
+    const pendingFocus = variantFocus.current;
+    if (pendingFocus === null) return;
+    variantFocus.current = null;
+    if (pendingFocus === "add") {
+      document.getElementById(`${formId}-add-variant`)?.focus();
+      return;
+    }
+    focusFirst(document.getElementById(`${formId}-variant-${pendingFocus}`));
+  }, [variants, formId]);
 
   if (!category) {
     return <p className="text-sm text-muted-foreground">Create an active category before adding a product.</p>;
@@ -121,18 +158,17 @@ export function ProductForm({
   }));
 
   return (
-    <ActionForm action={action} state={state} className="space-y-5">
+    <ActionForm action={action} state={state} autoComplete="off" className="space-y-5">
       {product ? <input type="hidden" name="id" value={product.id} /> : null}
       <input type="hidden" name="attributes" value={JSON.stringify(attributes)} />
       <input type="hidden" name="variants" value={JSON.stringify(variantPayload)} />
       <input type="hidden" name="existingImages" value={JSON.stringify(images.map((image, index) => ({ ...image, sortOrder: index })))} />
       <FormBanner state={state} />
 
-      <section className="pvrd-card space-y-4 p-4 sm:p-5">
-        <h2 className="font-heading text-base font-semibold">Product information</h2>
+      <section aria-labelledby={`${formId}-info`} className="pvrd-card space-y-4 p-4 sm:p-5">
+        <h2 id={`${formId}-info`} className="font-heading text-base font-semibold">Product information</h2>
         <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-          <label className="grid min-w-0 gap-1.5">
-            <Label>Category</Label>
+          <FormField label="Category" name="categoryId" state={state}>
             <select
               name="categoryId"
               value={categoryId}
@@ -142,42 +178,33 @@ export function ProductForm({
                 setVariants(next === product?.categoryId ? product.variants : []);
               }}
               className="pvrd-select h-9 px-3"
-              {...invalidProps(state, "categoryId")}
             >
               {categories.map((item) => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
-            <FieldIssue state={state} name="categoryId" />
-          </label>
-          <label className="grid min-w-0 gap-1.5">
-            <Label>Brand{brandField?.required === false ? "" : " *"}</Label>
-            <select name="brandId" defaultValue={product?.brandId ?? ""} required={brandField?.required !== false} className="pvrd-select h-9 px-3" {...invalidProps(state, "brandId")}>
+          </FormField>
+          <FormField label="Brand" name="brandId" state={state} required={brandField?.required !== false}>
+            <select name="brandId" defaultValue={product?.brandId ?? ""} className="pvrd-select h-9 px-3">
               <option value="">Select brand</option>
               {brands.map((brand) => (
                 <option key={brand.id} value={brand.id}>{brand.name}</option>
               ))}
             </select>
-            <FieldIssue state={state} name="brandId" />
-          </label>
-          <label className="grid min-w-0 gap-1.5">
-            <Label>Name</Label>
-            <Input name="name" value={name} onChange={(event) => setName(event.target.value)} required maxLength={255} {...invalidProps(state, "name")} />
-            <FieldIssue state={state} name="name" />
-          </label>
-          <label className="grid min-w-0 gap-1.5">
-            <Label>SKU</Label>
-            <Input name="sku" defaultValue={product?.sku ?? ""} maxLength={64} {...invalidProps(state, "sku")} />
-            <FieldIssue state={state} name="sku" />
-          </label>
-          <label className="grid min-w-0 gap-1.5">
-            <Label>Status</Label>
+          </FormField>
+          <FormField label="Name" name="name" state={state} required>
+            <Input name="name" value={name} onChange={(event) => setName(event.target.value)} maxLength={255} />
+          </FormField>
+          <FormField label="SKU" name="sku" state={state}>
+            <Input name="sku" defaultValue={product?.sku ?? ""} maxLength={64} />
+          </FormField>
+          <FormField label="Status" name="status">
             <select name="status" defaultValue={product?.status ?? "active"} className="pvrd-select h-9 px-3">
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="hidden">Hidden</option>
             </select>
-          </label>
+          </FormField>
         </div>
         {groups.map((group) => (
           <div key={group.name || "details"} className="space-y-3">
@@ -197,114 +224,121 @@ export function ProductForm({
             <DisplayRates rates={ratesFor(rates, group.fields)} attributes={attributes} />
           </div>
         ))}
-        <label className="grid gap-1.5">
-          <Label>Description</Label>
-          <Textarea name="description" defaultValue={product?.description ?? ""} maxLength={2000} {...invalidProps(state, "description")} />
-          <FieldIssue state={state} name="description" />
-        </label>
+        <FormField
+          label="Description"
+          name="description"
+          state={state}
+          hint="Enter adds a new line. Press Ctrl+Enter or ⌘+Enter to save."
+        >
+          <Textarea name="description" defaultValue={product?.description ?? ""} maxLength={2000} />
+        </FormField>
       </section>
 
-      <section className="pvrd-card space-y-4 p-4 sm:p-5">
-        <h2 className="font-heading text-base font-semibold">Pricing and points</h2>
+      <section aria-labelledby={`${formId}-pricing`} className="pvrd-card space-y-4 p-4 sm:p-5">
+        <div className="space-y-1">
+          <h2 id={`${formId}-pricing`} className="font-heading text-base font-semibold">Pricing and points</h2>
+          <p className="text-sm text-muted-foreground">
+            MRP is the public retail price. Trade price is the dealer rate for retailers and carpenters.
+          </p>
+        </div>
         <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <label className="grid min-w-0 gap-1.5">
-            <Label>MRP</Label>
-            <NumberInput name="mrp" min={0} max={9999999999.99} step="0.01" value={mrp} onChange={(event) => setMrp(event.target.value)} required {...invalidProps(state, "mrp")} />
-            <FieldIssue state={state} name="mrp" />
-          </label>
+          <FormField label={pricingFieldHelp.mrp.label} name="mrp" state={state} required tooltip={pricingFieldHelp.mrp.tooltip}>
+            <NumberInput name="mrp" min={0} max={9999999999.99} step="0.01" value={mrp} onChange={(event) => setMrp(event.target.value)} />
+          </FormField>
           {priceField ? (
-            <label className="grid min-w-0 gap-1.5">
-              <Label>{priceField.label}{priceField.required ? " *" : ""}</Label>
-              <NumberInput name="price" min={0} max={9999999999.99} step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} required={priceField.required} {...invalidProps(state, "price")} />
-              <FieldIssue state={state} name="price" />
-            </label>
+            <FormField label={pricingFieldHelp.price.label} name="price" state={state} required={priceField.required} tooltip={pricingFieldHelp.price.tooltip}>
+              <NumberInput name="price" min={0} max={9999999999.99} step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} />
+            </FormField>
           ) : null}
           {contractorField ? (
-            <label className="grid min-w-0 gap-1.5">
-              <Label>{contractorField.label}{contractorField.required ? " *" : ""}</Label>
-              <NumberInput name="contractorDiscount" min={0} max={999.99} step="0.01" value={contractorDiscount} onChange={(event) => setContractorDiscount(event.target.value)} required={contractorField.required} {...invalidProps(state, "contractorDiscount")} />
-              <FieldIssue state={state} name="contractorDiscount" />
-            </label>
+            <FormField label={contractorField.label} name="contractorDiscount" state={state} required={contractorField.required}>
+              <NumberInput name="contractorDiscount" min={0} max={999.99} step="0.01" value={contractorDiscount} onChange={(event) => setContractorDiscount(event.target.value)} />
+            </FormField>
           ) : null}
           {consumerField ? (
-            <label className="grid min-w-0 gap-1.5">
-              <Label>{consumerField.label}{consumerField.required ? " *" : ""}</Label>
-              <NumberInput name="consumerDiscount" min={0} max={999.99} step="0.01" value={consumerDiscount} onChange={(event) => setConsumerDiscount(event.target.value)} required={consumerField.required} {...invalidProps(state, "consumerDiscount")} />
-              <FieldIssue state={state} name="consumerDiscount" />
-            </label>
+            <FormField label={consumerField.label} name="consumerDiscount" state={state} required={consumerField.required}>
+              <NumberInput name="consumerDiscount" min={0} max={999.99} step="0.01" value={consumerDiscount} onChange={(event) => setConsumerDiscount(event.target.value)} />
+            </FormField>
           ) : null}
-          <label className="grid min-w-0 gap-1.5">
-            <Label>Points</Label>
-            <NumberInput name="points" integer min={0} max={1000000} step={1} value={points} onChange={(event) => setPoints(event.target.value)} {...invalidProps(state, "points")} />
-            <FieldIssue state={state} name="points" />
-          </label>
+          <FormField
+            label="Points"
+            name="points"
+            state={state}
+            tooltip="Saved on the product now. Earning and redemption arrive in the next release."
+          >
+            <NumberInput name="points" integer min={0} max={1000000} step={1} value={points} onChange={(event) => setPoints(event.target.value)} />
+          </FormField>
         </div>
       </section>
 
-      <section className="pvrd-card space-y-4 p-4 sm:p-5">
-        <h2 className="font-heading text-base font-semibold">Images</h2>
-        <div className="flex flex-wrap gap-3">
+      <section aria-labelledby={`${formId}-images-heading`} className="pvrd-card space-y-4 p-4 sm:p-5">
+        <h2 id={`${formId}-images-heading`} className="font-heading text-base font-semibold">Images</h2>
+        {images.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Arrow keys move between Primary choices. Alt+Up or Alt+Down moves the image you are on.
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-3" onKeyDown={onImageKeyDown}>
           {images.map((image, index) => (
-            <div key={image.id} className="w-28 space-y-2">
+            <div key={image.id} data-image-card="" data-image-id={image.id} data-image-index={index} className="w-28 space-y-2">
               <img src={image.url} alt="" className="h-20 w-full rounded-lg border border-border object-cover" />
-              <label className="flex items-center gap-1 text-[11px]">
+              <label className="flex items-center gap-2 text-[11px]">
                 <input
                   type="radio"
                   name="primaryImage"
+                  value={image.id}
+                  className="pvrd-radio"
                   checked={image.isPrimary}
                   onChange={() => setImages((current) => current.map((item, itemIndex) => ({ ...item, isPrimary: itemIndex === index })))}
                 />
                 Primary
               </label>
               <div className="flex gap-1">
-                <Button type="button" variant="outline" size="sm" onClick={() => moveImage(index, -1)} disabled={index === 0}>Up</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => moveImage(index, 1)} disabled={index === images.length - 1}>Down</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setImages((current) => current.filter((item) => item.id !== image.id))}>Remove</Button>
+                <Button type="button" variant="outline" size="sm" data-image-action="up" aria-label={`Move image ${index + 1} up`} onClick={() => moveImage(index, -1)} disabled={index === 0}>Up</Button>
+                <Button type="button" variant="outline" size="sm" data-image-action="down" aria-label={`Move image ${index + 1} down`} onClick={() => moveImage(index, 1)} disabled={index === images.length - 1}>Down</Button>
+                <Button type="button" variant="outline" size="sm" data-image-action="remove" aria-label={`Remove image ${index + 1}`} onClick={() => removeImage(image.id)}>Remove</Button>
               </div>
             </div>
           ))}
         </div>
-        <ImageDropzone name="images" multiple required={!product && images.length === 0} invalid={state?.field === "images"} label={product ? "Add images" : "Product images"} />
+        <ImageDropzone id={`${formId}-images`} name="images" multiple required={!product && images.length === 0} invalid={state?.field === "images"} label={product ? "Add images" : "Product images"} />
         <FieldIssue state={state} name="images" />
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="newPrimary" />
-          Use the first new upload as the primary image
-        </label>
+        <CheckField name="newPrimary">Use the first new upload as the primary image</CheckField>
       </section>
 
       {category.variantFields.length > 0 ? (
-        <section className="pvrd-card space-y-4 p-4 sm:p-5">
+        <section aria-labelledby={`${formId}-variants`} className="pvrd-card space-y-4 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-heading text-base font-semibold">Variants</h2>
-            <Button type="button" variant="outline" onClick={() => setVariants((current) => [...current, blankVariant(category.variantFields)])}>
+            <h2 id={`${formId}-variants`} className="font-heading text-base font-semibold">Variants</h2>
+            <Button id={`${formId}-add-variant`} type="button" variant="outline" onClick={addVariant}>
               Add variant
             </Button>
           </div>
           {variants.map((variant, index) => (
-            <article key={variant.id ?? index} className="grid min-w-0 gap-3 rounded-xl bg-muted/50 p-3 sm:grid-cols-2">
+            <article id={`${formId}-variant-${index}`} key={variant.id ?? index} className="grid min-w-0 gap-3 rounded-xl bg-muted/50 p-3 sm:grid-cols-2" aria-label={`Variant ${index + 1}`}>
               {category.variantFields.map((field) => field.type === "image" ? (
                 <VariantImageField key={field.key} index={index} field={field} imageUrl={variant.imageUrl} />
               ) : (
                 <div key={field.key} className="grid gap-2">
                   <SpecField
-                    field={field}
+                    field={withPricingLabel(field)}
+                    tooltip={pricingTooltip(field)}
+                    trackField={false}
                     value={variant.copy[field.key] ? parentValue(field.key) : variant.values[field.key] ?? ""}
                     disabled={Boolean(variant.copy[field.key])}
                     onChange={(value) => patchVariant(index, { values: { ...variant.values, [field.key]: value } })}
                   />
                   {field.copyFromParent ? (
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(variant.copy[field.key])}
-                        onChange={(event) => patchVariant(index, { copy: { ...variant.copy, [field.key]: event.target.checked } })}
-                      />
-                      Copy {field.label.toLowerCase()} from main form
-                    </label>
+                    <CheckField
+                      checked={Boolean(variant.copy[field.key])}
+                      onChange={(event) => patchVariant(index, { copy: { ...variant.copy, [field.key]: event.target.checked } })}
+                    >
+                      Copy {withPricingLabel(field).label.toLowerCase()} from the main form
+                    </CheckField>
                   ) : null}
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={() => setVariants((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+              <Button type="button" variant="outline" aria-label={`Remove variant ${index + 1}`} onClick={() => removeVariant(index)}>
                 Remove variant
               </Button>
             </article>
@@ -319,14 +353,45 @@ export function ProductForm({
     </ActionForm>
   );
 
+  function onImageKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    const card = (event.target as HTMLElement).closest("[data-image-index]");
+    if (!card) return;
+    const index = Number(card.getAttribute("data-image-index"));
+    if (Number.isNaN(index)) return;
+    event.preventDefault();
+    moveImage(index, event.key === "ArrowUp" ? -1 : 1);
+  }
+
   function moveImage(index: number, direction: -1 | 1) {
+    const id = images[index]?.id;
+    const target = index + direction;
+    if (!id || target < 0 || target >= images.length) return;
+    imageFocus.current = { id, action: direction < 0 ? "up" : "down" };
     setImages((current) => {
       const next = [...current];
-      const target = index + direction;
-      if (target < 0 || target >= next.length) return current;
+      const nextTarget = index + direction;
+      if (nextTarget < 0 || nextTarget >= next.length) return current;
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
+  }
+
+  function removeImage(id: string) {
+    const index = images.findIndex((image) => image.id === id);
+    const neighbor = images[index + 1] ?? images[index - 1];
+    imageFocus.current = neighbor ? { id: neighbor.id, action: "remove" } : { id: "", action: "picker" };
+    setImages((current) => current.filter((image) => image.id !== id));
+  }
+
+  function addVariant() {
+    variantFocus.current = variants.length;
+    setVariants((current) => [...current, blankVariant(category.variantFields)]);
+  }
+
+  function removeVariant(index: number) {
+    variantFocus.current = variants.length === 1 ? "add" : index < variants.length - 1 ? index : index - 1;
+    setVariants((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
   function patchVariant(index: number, patch: Partial<FormVariant>) {
@@ -336,6 +401,16 @@ export function ProductForm({
 
 function spec(category: FormCategory, key: string) {
   return category.fields.find((field) => field.key === key);
+}
+
+function withPricingLabel(field: CategoryField) {
+  if (field.key !== "mrp" && field.key !== "price") return field;
+  return { ...field, label: pricingFieldHelp[field.key].label };
+}
+
+function pricingTooltip(field: CategoryField) {
+  if (field.key !== "mrp" && field.key !== "price") return undefined;
+  return pricingFieldHelp[field.key].tooltip;
 }
 
 function groupFields(fields: CategoryField[]) {
@@ -379,6 +454,8 @@ function SpecField({
   disabled = false,
   invalid = false,
   message,
+  trackField = true,
+  tooltip,
 }: {
   field: CategoryField;
   value: string;
@@ -386,42 +463,98 @@ function SpecField({
   disabled?: boolean;
   invalid?: boolean;
   message?: string;
+  trackField?: boolean;
+  tooltip?: string;
 }) {
+  const autoId = useId();
+  const errorId = invalid ? `${autoId}-error` : undefined;
   const options = field.options ?? [];
   const choices = value && !options.includes(value) ? [value, ...options] : options;
+  const required = Boolean(field.required && !disabled);
+  const control = {
+    id: autoId,
+    "data-field": trackField ? field.key : undefined,
+    disabled,
+    required,
+    "aria-invalid": invalid || undefined,
+    "aria-describedby": errorId,
+  };
+
+  if (field.type === "checkbox") {
+    return (
+      <div className="grid gap-1.5" data-focus-anchor="">
+        <label className="flex min-h-9 items-center gap-2 text-sm">
+          <input
+            {...control}
+            type="checkbox"
+            className="pvrd-check"
+            checked={value === "yes"}
+            onChange={(event) => onChange(event.target.checked ? "yes" : "")}
+          />
+          <span>
+            {field.label}
+            {field.required ? <RequiredMark /> : null}
+          </span>
+        </label>
+        {invalid && message ? <p id={errorId} role="alert" className="text-sm text-destructive">{message}</p> : null}
+      </div>
+    );
+  }
+
   return (
-    <label className="grid min-w-0 gap-1.5">
-      <Label>{field.label}{field.required ? " *" : ""}</Label>
+    <div className="grid min-w-0 gap-1.5" data-focus-anchor="">
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={autoId}>
+          {field.label}
+          {field.required ? <RequiredMark /> : null}
+        </Label>
+        {tooltip ? <FieldTip text={tooltip} /> : null}
+      </div>
       {field.type === "textarea" ? (
-        <Textarea value={value} disabled={disabled} aria-invalid={invalid || undefined} onChange={(event) => onChange(event.target.value)} />
+        <Textarea {...control} value={value} onChange={(event) => onChange(event.target.value)} />
       ) : field.type === "select" ? (
-        <select value={value} disabled={disabled} aria-invalid={invalid || undefined} onChange={(event) => onChange(event.target.value)} className="pvrd-select h-9 px-3">
+        <select {...control} value={value} onChange={(event) => onChange(event.target.value)} className="pvrd-select h-9 px-3">
           <option value="">Select {field.label.toLowerCase()}</option>
           {choices.map((option) => (
             <option key={option} value={option}>{option}</option>
           ))}
         </select>
-      ) : field.type === "checkbox" ? (
-        <input type="checkbox" checked={value === "yes"} disabled={disabled} onChange={(event) => onChange(event.target.checked ? "yes" : "")} />
+      ) : field.type === "number" ? (
+        <NumberInput {...control} min={0} step="any" value={value} onChange={(event) => onChange(event.target.value)} />
       ) : (
-        field.type === "number" ? (
-          <NumberInput min={0} step="any" value={value} disabled={disabled} aria-invalid={invalid || undefined} onChange={(event) => onChange(event.target.value)} />
-        ) : (
-          <Input value={value} disabled={disabled} aria-invalid={invalid || undefined} onChange={(event) => onChange(event.target.value)} />
-        )
+        <Input {...control} value={value} onChange={(event) => onChange(event.target.value)} />
       )}
-      {invalid && message ? <p className="text-sm text-destructive">{message}</p> : null}
-    </label>
+      {invalid && message ? <p id={errorId} role="alert" className="text-sm text-destructive">{message}</p> : null}
+    </div>
   );
 }
 
 function VariantImageField({ index, field, imageUrl }: { index: number; field: CategoryField; imageUrl?: string | null }) {
+  const id = useId();
+  const previewUrl = useRef<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    };
+  }, []);
+
+  function useFile(file: File | undefined) {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    const url = file ? URL.createObjectURL(file) : null;
+    previewUrl.current = url;
+    setPreview(url);
+  }
+
   return (
-    <label className="grid gap-1.5 sm:col-span-2">
-      <Label>{field.label}{field.required ? " *" : ""}</Label>
+    <div className="grid gap-1.5 sm:col-span-2" data-focus-anchor="">
+      <Label htmlFor={id}>
+        {field.label}
+        {field.required ? <RequiredMark /> : null}
+      </Label>
       <div
-        className="rounded-xl border border-dashed border-border bg-background p-3"
+        className="rounded-xl border border-dashed border-border bg-background p-3 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
@@ -431,23 +564,34 @@ function VariantImageField({ index, field, imageUrl }: { index: number; field: C
           const transfer = new DataTransfer();
           transfer.items.add(file);
           input.files = transfer.files;
-          setPreview(URL.createObjectURL(file));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+          useFile(file);
         }}
       >
         <Input
+          id={id}
           name={`variantImage_${index}`}
           type="file"
           accept="image/png,image/jpeg,image/webp"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            setPreview(file ? URL.createObjectURL(file) : null);
-          }}
+          required={field.required && !imageUrl}
+          aria-describedby={`${id}-hint`}
+          onChange={(event) => useFile(event.target.files?.[0])}
         />
-        <p className="mt-1 text-xs text-muted-foreground">Drop an image here to preview it before saving.</p>
+        <p id={`${id}-hint`} className="mt-1 text-xs text-muted-foreground">
+          Choose a file with Enter or Space, or drop an image here.
+        </p>
       </div>
       {preview || imageUrl ? <img src={preview || imageUrl || ""} alt="" className="h-20 w-28 rounded-lg border border-border object-cover" /> : null}
-    </label>
+    </div>
   );
+}
+
+function focusFirst(root: ParentNode | null) {
+  root?.querySelector<HTMLElement>('input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)')?.focus();
+}
+
+function cssEscape(value: string) {
+  return CSS.escape(value);
 }
 
 function blankVariant(fields: CategoryField[]): FormVariant {

@@ -126,12 +126,44 @@
     background-image:
       radial-gradient(ellipse 90% 55% at 0% -10%, rgba(163, 203, 70, 0.1), transparent 55%),
       radial-gradient(ellipse 70% 45% at 100% 0%, rgba(0, 60, 108, 0.07), transparent 50%);
-    background-attachment: fixed;
   }
 
   ::selection {
     background: color-mix(in srgb, var(--lime) 35%, white);
     color: var(--primary);
+  }
+
+  :where(
+    a[href],
+    button:not(:disabled),
+    summary,
+    select,
+    label,
+    [role="button"]:not([aria-disabled="true"]),
+    [role="tab"],
+    [role="menuitem"],
+    [role="option"]
+  ) {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  :where(a, button, summary, select, label):not([data-slot]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  :where(a, button, summary, select, label, [role="button"], [role="menuitem"], [role="option"], [role="tab"]):not(
+      :disabled
+    ):active {
+    filter: brightness(0.9);
+  }
+
+  @media (hover: hover) {
+    :where(button, [role="button"], summary):not(:disabled):not([class*="hover:"]):hover {
+      filter: brightness(0.96);
+    }
   }
 }
 
@@ -172,6 +204,18 @@
     }
   }
 
+  a.pvrd-card:active,
+  button.pvrd-card:active,
+  .pvrd-card-interactive:active {
+    transform: translateY(0) scale(0.985);
+    transition-duration: 90ms;
+  }
+
+  .pvrd-check:active,
+  .pvrd-radio:active {
+    transform: scale(0.92);
+  }
+
   .pvrd-surface {
     @apply rounded-2xl bg-card;
     box-shadow: 0 0 0 1px rgba(0, 60, 108, 0.08);
@@ -205,12 +249,54 @@
   }
 
   .pvrd-page {
-    @apply mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-12;
+    @apply mx-auto w-full max-w-6xl py-6 sm:py-10 lg:py-12;
+  }
+
+  /* Keeps text off the notch, punch-hole, and curved edges. 0px when the browser already insets. */
+  .safe-gutter,
+  .pvrd-page {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+
+  .safe-screen {
+    padding-top: max(1rem, env(safe-area-inset-top, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
   }
 
   /* Native selects size to their longest option and overflow grid tracks. */
   .pvrd-select {
     @apply h-11 w-full min-w-0 max-w-full rounded-lg border border-input bg-white px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:h-9 md:text-sm;
+  }
+
+  .pvrd-check,
+  .pvrd-radio {
+    @apply size-4 shrink-0 accent-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+@media (min-width: 640px) {
+  .safe-gutter,
+  .pvrd-page {
+    padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+  }
+
+  .safe-screen {
+    padding-top: max(1.5rem, env(safe-area-inset-top, 0px));
+    padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+  }
+}
+
+@media (min-width: 1024px) {
+  .safe-gutter,
+  .pvrd-page {
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
   }
 }
 
@@ -254,5 +340,168 @@
   .pvrd-card-interactive {
     animation: none;
     transition: none;
+  }
+
+  .splash-mark,
+  .pvrd-tap,
+  .pvrd-loader svg,
+  .pvrd-progress-bar {
+    animation: none;
+  }
+
+  .pvrd-progress-bar {
+    transform: scaleX(0.72);
+  }
+}
+
+@keyframes search-result-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-result {
+  animation: search-result-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-backdrop,
+  .search-panel,
+  .search-result {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding:
+    max(1.25rem, env(safe-area-inset-top, 0px))
+    max(1.25rem, env(safe-area-inset-right, 0px))
+    max(1.25rem, env(safe-area-inset-bottom, 0px))
+    max(1.25rem, env(safe-area-inset-left, 0px));
+  background:
+    radial-gradient(ellipse 50% 42% at 50% 46%, rgba(163, 203, 70, 0.28), transparent 62%),
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(10, 72, 121, 0.55), transparent 58%),
+    #003c6c;
+  animation: splash-lifetime 7s linear forwards;
+}
+
+.splash-screen::before {
+  content: "";
+  position: absolute;
+  width: min(78vw, 340px);
+  aspect-ratio: 940 / 508;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  filter: blur(28px);
+}
+
+.splash-mark {
+  position: relative;
+  z-index: 1;
+  animation: splash-mark-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.splash-screen-leave {
+  animation: splash-leave 480ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
+}
+
+.pvrd-progress {
+  pointer-events: none;
+  position: fixed;
+  inset: env(safe-area-inset-top, 0px) 0 auto;
+  z-index: 180;
+  height: 3px;
+  overflow: hidden;
+}
+
+.pvrd-progress-bar {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #7fa82e, #a3cb46 45%, #f3f8e4);
+  box-shadow: 0 0 12px rgba(163, 203, 70, 0.75);
+  animation: pvrd-progress 10s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.pvrd-progress-bar[data-phase="done"] {
+  animation: none;
+  transform: scaleX(1);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.pvrd-tap {
+  animation: pvrd-tap 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes splash-lifetime {
+  0%,
+  92% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+@keyframes splash-mark-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes splash-leave {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(1.015);
+  }
+}
+
+@keyframes pvrd-progress {
+  0% {
+    transform: scaleX(0.06);
+  }
+  25% {
+    transform: scaleX(0.38);
+  }
+  60% {
+    transform: scaleX(0.68);
+  }
+  100% {
+    transform: scaleX(0.9);
+  }
+}
+
+@keyframes pvrd-tap {
+  0% {
+    filter: brightness(1);
+  }
+  35% {
+    filter: brightness(0.84);
+  }
+  100% {
+    filter: brightness(1);
   }
 }

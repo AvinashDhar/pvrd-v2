@@ -1,0 +1,1 @@
+ALTER TABLE `quotation_messages` MODIFY COLUMN `created_at` datetime(3) NOT NULL DEFAULT (utc_timestamp(3));

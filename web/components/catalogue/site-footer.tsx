@@ -13,11 +13,11 @@ export async function SiteFooter() {
   const settings = await getCompanySettings();
   return (
     <footer className="mt-auto border-t border-[#003c6c]/8 bg-white/70 backdrop-blur-xl">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.4fr_0.8fr_0.8fr] lg:px-8">
+      <div className="safe-gutter mx-auto grid max-w-6xl gap-8 py-10 lg:grid-cols-[1.4fr_0.8fr_0.8fr]">
         <div>
           <PvrdLogo inverted size={44} />
           <p className="mt-4 max-w-sm text-base leading-relaxed text-muted-foreground">
-            {settings.tagline} for retailers, contractors and homeowners. Browse fittings, download PDFs and send inquiries in minutes.
+            {settings.tagline} for retailers, contractors and homeowners. Sign in for discounted trade prices, request a quotation, and discuss it with OM PVRD.
           </p>
         </div>
         <div>
@@ -59,9 +59,20 @@ export async function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-[#003c6c]/8">
-        <p className="mx-auto max-w-6xl px-4 py-4 text-xs text-muted-foreground sm:px-6 lg:px-8">
-          © {new Date().getFullYear()} {settings.companyName}. All rights reserved.
-        </p>
+        <div className="safe-gutter mx-auto flex max-w-6xl flex-col gap-2 pt-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} {settings.companyName}. All rights reserved.</p>
+          <p>
+            Crafted with love ❤️ by{" "}
+            <a
+              href="https://flyingdevs.com"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-primary"
+            >
+              flyingDevs Technologies
+            </a>
+          </p>
+        </div>
       </div>
     </footer>
   );

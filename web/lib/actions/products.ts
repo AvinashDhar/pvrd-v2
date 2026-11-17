@@ -9,7 +9,10 @@ import { getAdminSession } from "@/lib/auth/session";
 import { getCategory, getProduct } from "@/lib/catalogue/queries";
 import { markCataloguesStale } from "@/lib/catalogues/freshness";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
+import { flash } from "@/lib/flash";
 import { formError } from "@/lib/forms";
+import { pricingFieldHelp } from "@/lib/pricing";
+import { announceProductLaunch, removeLaunchNotices } from "@/lib/launches";
 
 function refresh(id?: string) {
   revalidatePath("/admin/products");
@@ -17,6 +20,7 @@ function refresh(id?: string) {
   revalidatePath("/categories");
   revalidatePath("/brands");
   revalidatePath("/");
+  revalidatePath("/notifications");
   if (id) {
     revalidatePath(`/admin/products/${id}`);
     revalidatePath(`/products/${id}`);
@@ -65,8 +69,9 @@ export async function saveProduct(_previous: { error: string; field?: string } |
   if (sku.length > 64) return formError("SKU must be 64 characters or fewer.", "sku");
   if (!mrp) return formError("Enter an MRP of 0 or more.", "mrp");
   const priceField = category.fields.find((field) => field.key === "price");
-  if (priceText && !price) return formError(`Enter a valid ${priceField?.label ?? "price"}.`, "price");
-  if (priceField?.required && !price) return formError(`${priceField.label} is required.`, "price");
+  const tradeLabel = pricingFieldHelp.price.label;
+  if (priceText && !price) return formError(`Enter a valid ${tradeLabel.toLowerCase()}.`, "price");
+  if (priceField?.required && !price) return formError(`${tradeLabel} is required.`, "price");
   const storedPrice = price ?? mrp;
 
   const brandField = category.fields.find((field) => field.key === "brand");
@@ -97,6 +102,14 @@ export async function saveProduct(_previous: { error: string; field?: string } |
   } catch {
     return formError("Product specifications could not be read.");
   }
+  if (current?.attributes && typeof current.attributes === "object") {
+    const previous = Object.fromEntries(
+      Object.entries(current.attributes)
+        .filter(([key]) => !key.startsWith("_"))
+        .map(([key, value]) => [key, String(value ?? "")]),
+    );
+    attributes = { ...previous, ...attributes };
+  }
 
   for (const field of category.fields) {
     if (!field.required) continue;
@@ -124,11 +137,12 @@ export async function saveProduct(_previous: { error: string; field?: string } |
     updatedAt: new Date(),
   };
 
+  const publishing = values.status === "active" && (!current || !current.launchedAt);
   const productId = current?.id ?? newId();
   if (current) {
     await db.update(products).set(values).where(eq(products.id, productId));
   } else {
-    await db.insert(products).values({ id: productId, ...values });
+    await db.insert(products).values({ id: productId, ...values, launchedAt: null });
   }
 
   try {
@@ -156,6 +170,13 @@ export async function saveProduct(_previous: { error: string; field?: string } |
     return formError("Upload at least one product image.", "images");
   }
 
+  if (publishing) {
+    const launchedAt = new Date();
+    await db.update(products).set({ launchedAt }).where(eq(products.id, productId));
+    const saved = await getProduct(productId);
+    if (saved) await announceProductLaunch(saved);
+  }
+
   await db.insert(activityLogs).values({
     title: `${session.name} ${current ? "updated" : "added"} product ${name}`,
     entityType: "product",
@@ -163,6 +184,7 @@ export async function saveProduct(_previous: { error: string; field?: string } |
   });
   await markCataloguesStale([current?.categoryId, category.id]);
   refresh(productId);
+  await flash("success", current ? "Product updated." : "Product added.");
   redirect(`/admin/products/${productId}`);
 }
 
@@ -284,7 +306,9 @@ async function syncVariants(
     }
 
     const name = read("name") || [read("size"), read("finish")].filter(Boolean).join(" / ") || `Variant ${index + 1}`;
-    const attributes: Record<string, unknown> = { _copy: copy };
+    const existing = current.find((row) => row.id === variant.id);
+    const previousAttributes = existing?.attributes && typeof existing.attributes === "object" ? existing.attributes : {};
+    const attributes: Record<string, unknown> = { ...previousAttributes, _copy: copy };
     for (const field of fields) {
       if (["name", "finish", "size", "price", "image"].includes(field.key)) continue;
       attributes[field.key] = read(field.key);
@@ -342,11 +366,22 @@ export async function setProductStatus(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   const product = await getProduct(id);
-  if (!product || !["active", "hidden"].includes(status)) redirect("/admin/products");
+  if (!product || !["active", "hidden"].includes(status)) {
+    return { error: "That product could not be updated." };
+  }
+  const publishing = status === "active" && !product.launchedAt;
   await db
     .update(products)
-    .set({ status: status as "active" | "hidden", updatedAt: new Date() })
+    .set({
+      status: status as "active" | "hidden",
+      updatedAt: new Date(),
+      ...(publishing ? { launchedAt: new Date() } : {}),
+    })
     .where(eq(products.id, id));
+  if (publishing) {
+    const saved = await getProduct(id);
+    if (saved) await announceProductLaunch(saved);
+  }
   await db.insert(activityLogs).values({
     title: `${session.name} set ${product.name} to ${status}`,
     entityType: "product",
@@ -354,7 +389,7 @@ export async function setProductStatus(formData: FormData) {
   });
   await markCataloguesStale([product.categoryId]);
   refresh(id);
-  redirect(`/admin/products/${id}`);
+  return { message: status === "active" ? `${product.name} is now visible.` : `${product.name} is now hidden.` };
 }
 
 async function discardProduct(productId: string) {
@@ -362,7 +397,7 @@ async function discardProduct(productId: string) {
     .select({ url: productImages.url, objectKey: productImages.objectKey })
     .from(productImages)
     .where(eq(productImages.productId, productId));
-  for (const image of images) await removeStoredImage(image.url, image.objectKey);
+  await Promise.all(images.map((image) => removeStoredImage(image.url, image.objectKey)));
   await db.delete(products).where(eq(products.id, productId));
 }
 
@@ -371,21 +406,41 @@ export async function bulkProducts(formData: FormData) {
   if (!session) redirect("/login/admin");
   const ids = [...new Set(formData.getAll("ids").map((value) => String(value)).filter(Boolean))];
   const action = String(formData.get("bulk") ?? "");
-  if (ids.length === 0) redirect("/admin/products");
+  if (ids.length === 0) return { error: "Select at least one product." };
   const linked = await db
-    .select({ categoryId: products.categoryId })
+    .select({
+      id: products.id,
+      status: products.status,
+      launchedAt: products.launchedAt,
+      categoryId: products.categoryId,
+    })
     .from(products)
     .where(inArray(products.id, ids));
 
   if (action === "delete") {
-    for (const id of ids) await discardProduct(id);
+    await Promise.all(ids.map((id) => discardProduct(id)));
+    await removeLaunchNotices(ids);
   } else if (action === "active" || action === "inactive" || action === "hidden") {
+    const now = new Date();
+    const firstLaunch = action === "active" ? linked.filter((row) => row.status !== "active" && !row.launchedAt) : [];
     await db
       .update(products)
-      .set({ status: action, updatedAt: new Date() })
+      .set({ status: action, updatedAt: now })
       .where(inArray(products.id, ids));
+    if (firstLaunch.length > 0) {
+      await db
+        .update(products)
+        .set({ launchedAt: now })
+        .where(inArray(products.id, firstLaunch.map((row) => row.id)));
+      await Promise.all(
+        firstLaunch.map(async (row) => {
+          const saved = await getProduct(row.id);
+          if (saved) await announceProductLaunch(saved);
+        }),
+      );
+    }
   } else {
-    redirect("/admin/products");
+    return { error: "Choose an action for the selected products." };
   }
 
   await db.insert(activityLogs).values({
@@ -395,7 +450,11 @@ export async function bulkProducts(formData: FormData) {
   });
   await markCataloguesStale(linked.map((row) => row.categoryId));
   refresh();
-  redirect("/admin/products");
+  const noun = ids.length === 1 ? "product" : "products";
+  if (action === "delete") return { message: `Deleted ${ids.length} ${noun}.` };
+  if (action === "active") return { message: `Marked ${ids.length} ${noun} active.` };
+  if (action === "hidden") return { message: `Hid ${ids.length} ${noun}.` };
+  return { message: `Marked ${ids.length} ${noun} inactive.` };
 }
 
 export async function deleteProduct(formData: FormData) {
@@ -403,8 +462,12 @@ export async function deleteProduct(formData: FormData) {
   if (!session) redirect("/login/admin");
   const id = String(formData.get("id") ?? "");
   const product = await getProduct(id);
-  if (!product) redirect("/admin/products");
+  if (!product) {
+    await flash("error", "That product is no longer available.");
+    redirect("/admin/products");
+  }
   await discardProduct(id);
+  await removeLaunchNotices([id]);
   await db.insert(activityLogs).values({
     title: `${session.name} deleted product ${product.name}`,
     entityType: "product",
@@ -412,5 +475,8 @@ export async function deleteProduct(formData: FormData) {
   });
   await markCataloguesStale([product.categoryId]);
   refresh(id);
+  const message = `${product.name} deleted.`;
+  if (formData.get("stay") === "1") return { message };
+  await flash("success", message);
   redirect("/admin/products");
 }

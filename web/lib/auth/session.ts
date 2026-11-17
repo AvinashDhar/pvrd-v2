@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -126,10 +127,10 @@ export async function accountFromToken(token: string | null | undefined) {
   return session satisfies CatalogueAccount;
 }
 
-export async function getUserSession() {
+export const getUserSession = cache(async function getUserSession() {
   const jar = await cookies();
   return accountFromToken(jar.get(USER_COOKIE)?.value);
-}
+});
 
 /** A present but malformed bearer token is rejected. A missing header falls through to the site cookie. */
 export function readBearerToken(request: Request) {

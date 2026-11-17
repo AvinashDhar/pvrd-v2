@@ -17,7 +17,7 @@ function asNumber(value: unknown) {
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; type?: string; status?: string; error?: string }>;
+  searchParams: Promise<{ q?: string; type?: string; status?: string }>;
 }) {
   const filters = await searchParams;
   const q = filters.q?.trim() ?? "";
@@ -56,8 +56,8 @@ export default async function UsersPage({
       </section>
 
       <form className="flex min-w-0 flex-wrap items-center gap-2" action="/admin/users">
-        <Input name="q" defaultValue={q} placeholder="Search name, mobile, or email" className="w-full min-w-0 sm:w-64" />
-        <select name="type" defaultValue={type ?? ""} className="pvrd-select sm:w-auto sm:shrink-0">
+        <Input name="q" aria-label="Search users" defaultValue={q} placeholder="Search name, mobile, or email" className="w-full min-w-0 sm:w-64" />
+        <select name="type" aria-label="Account type" defaultValue={type ?? ""} className="pvrd-select sm:w-auto sm:shrink-0">
           <option value="">All types</option>
           {userTypes.map((item) => (
             <option key={item} value={item}>
@@ -65,7 +65,7 @@ export default async function UsersPage({
             </option>
           ))}
         </select>
-        <select name="status" defaultValue={status ?? ""} className="pvrd-select sm:w-auto sm:shrink-0">
+        <select name="status" aria-label="Account status" defaultValue={status ?? ""} className="pvrd-select sm:w-auto sm:shrink-0">
           <option value="">All statuses</option>
           {accountStatuses.map((item) => (
             <option key={item} value={item}>
@@ -77,10 +77,6 @@ export default async function UsersPage({
           Filter
         </Button>
       </form>
-
-      {filters.error === "reason" ? (
-        <p className="text-sm text-destructive">A block needs a short reason.</p>
-      ) : null}
 
       <div className="pvrd-card overflow-x-auto">
         <table className="w-full min-w-[980px] text-sm">

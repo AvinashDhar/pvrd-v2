@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { toast } from "sonner";
+import { showNotice } from "@/components/admin/notice-toast";
 import { Button } from "@/components/ui/button";
 import { generateCatalogue, type CatalogueActionState } from "@/lib/actions/catalogues";
 
@@ -19,7 +19,9 @@ export function CatalogueActions({
   const [state, action, pending] = useActionState(generateCatalogue, null as CatalogueActionState);
 
   useEffect(() => {
-    if (state && "ok" in state && state.ok) toast.success(`${name} catalogue is ready.`);
+    if (!state) return;
+    if ("ok" in state && state.ok) showNotice("success", `${name} catalogue is ready.`);
+    if ("error" in state && state.error) showNotice("error", state.error);
   }, [state, name]);
 
   return (
