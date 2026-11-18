@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { activityLogs, catalogues, categories, newId, productImages, productVariants, products } from "@/lib/db/schema";
 import { getAdminSession } from "@/lib/auth/session";
-import { fieldChangeError, normalizeFields, readDisplayRates, slugify } from "@/lib/catalogue/fields";
+import { fieldChangeError, normalizeFields, slugify } from "@/lib/catalogue/fields";
 import { BUILTIN_SCHEMA_VERSION } from "@/lib/categories/field-schemas";
 import { getCategory } from "@/lib/catalogue/queries";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
@@ -125,9 +125,6 @@ export async function saveCategory(_previous: { error: string; field?: string } 
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const status = String(formData.get("status") ?? "active");
-  const displayRates = readDisplayRates({ displayRates: readJson(formData, "displayRates") });
-  const displayFormula = displayRates.map((rate) => rate.formula).join(" · ")
-    || String(formData.get("displayFormula") ?? "").trim();
   if (!name) return formError("Category name is required.", "name");
   if (name.length > 160) return formError("Name must be 160 characters or fewer.", "name");
   if (description.length > 2000) return formError("Description must be 2000 characters or fewer.", "description");
@@ -175,8 +172,6 @@ export async function saveCategory(_previous: { error: string; field?: string } 
     fieldSchema: {
       schemaVersion: BUILTIN_SCHEMA_VERSION,
       fields,
-      displayFormula: displayFormula || undefined,
-      displayRates,
     },
     variantSchema: variantFields,
   };

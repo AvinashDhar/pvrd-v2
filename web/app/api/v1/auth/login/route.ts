@@ -8,7 +8,9 @@ export async function POST(request: Request) {
     return apiError("Too many attempts. Wait a few minutes and try again.", 429);
   }
 
-  const { fields } = await readPayload(request);
+  const payload = await readPayload(request);
+  if (payload.error) return apiError(payload.error, failureStatus(payload.error), payload.field);
+  const { fields } = payload;
   const result = await authenticateCatalogueAccount(fields.identifier ?? "", fields.password ?? "");
   if ("error" in result) return apiError(result.error, failureStatus(result.error), result.field);
 

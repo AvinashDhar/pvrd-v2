@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
+import { ImageFileInput } from "@/components/admin/image-file-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,7 +103,8 @@ export function ProfileForm({
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="photo">Replace photo</Label>
-          <Input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" {...invalidProps(state, "photo")} />
+          <ImageFileInput id="photo" name="photo" describedBy="photo-hint" invalid={state?.field === "photo"} />
+          <p id="photo-hint" className="text-xs text-muted-foreground">JPG, PNG, or WEBP, up to 5 MB.</p>
           <FieldIssue state={state} name="photo" />
         </div>
         <div className="grid min-w-0 gap-4 sm:grid-cols-2">

@@ -68,7 +68,7 @@ async function main() {
       name: schema.name,
       slug: schema.slug,
       imageUrl: imageForCategory(schema.slug),
-      description: schema.displayFormula ? `Display rate: ${schema.displayFormula}` : null,
+      description: null,
       status: "active",
       fieldSchema: builtinFieldSchema(schema),
       variantSchema: schema.variantFields,

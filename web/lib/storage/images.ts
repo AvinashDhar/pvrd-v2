@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { MAX_IMAGE_BYTES, validateImageFile } from "@/lib/storage/upload-limits";
 
-const MAX_BYTES = 2 * 1024 * 1024;
 const REMOTE_UPLOADS_PER_MINUTE = 12;
 const recentRemoteUploads: number[] = [];
 
@@ -12,6 +12,8 @@ const extensions: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
 };
+
+export { MAX_IMAGE_BYTES, MAX_PRODUCT_UPLOAD_BYTES, imageUploadHint } from "@/lib/storage/upload-limits";
 
 export type ImageLocation =
   | { folder: "products"; id: string }
@@ -91,12 +93,12 @@ function reserveRemoteUpload() {
 }
 
 export async function storeImage(file: File, location: ImageLocation) {
+  const invalid = validateImageFile(file, MAX_IMAGE_BYTES);
+  if (invalid) throw new Error(invalid);
+
   const extension = extensions[file.type];
   if (!extension) {
     throw new Error("Upload a JPG, PNG, or WEBP image.");
-  }
-  if (file.size > MAX_BYTES) {
-    throw new Error("Image must be 2 MB or smaller.");
   }
 
   const id = randomUUID();

@@ -9,6 +9,7 @@ import { getAdminSession } from "@/lib/auth/session";
 import { getCategory, getProduct } from "@/lib/catalogue/queries";
 import { markCataloguesStale } from "@/lib/catalogues/freshness";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
+import { collectProductUploadFiles, validateProductUploads } from "@/lib/storage/upload-limits";
 import { flash } from "@/lib/flash";
 import { formError } from "@/lib/forms";
 import { pricingFieldHelp } from "@/lib/pricing";
@@ -90,6 +91,10 @@ export async function saveProduct(_previous: { error: string; field?: string } |
   if (!Number.isInteger(points) || points < 0 || points > 1_000_000) {
     return formError("Points must be a whole number from 0 to 1000000.", "points");
   }
+  const attributesText = String(formData.get("attributesText") ?? "").trim();
+  if (attributesText.length > 4000) {
+    return formError("Attributes must be 4000 characters or fewer.", "attributesText");
+  }
 
   let attributes: Record<string, string> = {};
   try {
@@ -119,6 +124,9 @@ export async function saveProduct(_previous: { error: string; field?: string } |
     if (!attributes[field.key]?.trim()) return formError(`${field.label} is required.`, field.key);
   }
 
+  const uploadError = validateProductUploads(collectProductUploadFiles(formData));
+  if (uploadError) return formError(uploadError, "images");
+
   const values = {
     categoryId: category.id,
     brandId: brandId || null,
@@ -130,6 +138,7 @@ export async function saveProduct(_previous: { error: string; field?: string } |
     consumerDiscount: money(formData.get("consumerDiscount")),
     points,
     description: String(formData.get("description") ?? "").trim() || null,
+    attributesText: attributesText || null,
     attributes,
     status: (["active", "inactive", "hidden"].includes(String(formData.get("status")))
       ? String(formData.get("status"))

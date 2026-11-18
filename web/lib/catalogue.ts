@@ -1,5 +1,4 @@
 import { fallbackImage } from "@/lib/media";
-import { computeDisplayRate } from "@/lib/catalogue/fields";
 import { countProducts, getCategory, getProduct, listProducts, publicCatalogue } from "@/lib/catalogue/queries";
 
 export async function publicCategories() {
@@ -112,11 +111,6 @@ export async function getPublicProduct(id: string) {
       key,
       label: labels.get(key) ?? key,
       value,
-    })),
-    displayRates: (category?.displayRates ?? []).map((rate) => ({
-      label: rate.label,
-      formula: rate.formula,
-      value: computeDisplayRate(rate.keys, product.attributes),
     })),
     images: product.images.map((image) => image.url),
     variants: product.variants.map((variant) => {

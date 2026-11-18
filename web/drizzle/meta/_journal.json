@@ -57,6 +57,13 @@
       "when": 1794811311786,
       "tag": "0007_quotation_message_time",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1794967490257,
+      "tag": "0008_product_attributes_text",
+      "breakpoints": true
     }
   ]
 }

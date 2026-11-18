@@ -48,7 +48,6 @@ export function presentProduct(
   product: Card & {
     description: string | null;
     specs: { key: string; label: string; value: string }[];
-    displayRates: { label: string; formula: string; value: string | null }[];
     images?: string[];
     variants: CatalogueVariant[];
   },
@@ -105,7 +104,6 @@ export function presentProduct(
     description: product.description,
     images,
     specs,
-    displayRates: product.displayRates,
     variants,
     variantGroups,
   };

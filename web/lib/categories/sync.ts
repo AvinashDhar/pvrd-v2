@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
 import { BUILTIN_SCHEMA_VERSION, builtinFieldSchema, categorySchemas } from "@/lib/categories/field-schemas";
-import { readSchemaVersion } from "@/lib/catalogue/fields";
+import { isSeedDisplayRateDescription, readSchemaVersion, stripDisplayRateSchema } from "@/lib/catalogue/fields";
 
 let pending: Promise<void> | null = null;
 
@@ -17,18 +17,37 @@ export function ensureBuiltinSchemas() {
 }
 
 export async function syncBuiltinCategorySchemas() {
-  const rows = await db.select({ slug: categories.slug, fieldSchema: categories.fieldSchema }).from(categories);
-  const stored = new Map(rows.map((row) => [row.slug, row.fieldSchema]));
+  const rows = await db
+    .select({
+      id: categories.id,
+      slug: categories.slug,
+      description: categories.description,
+      fieldSchema: categories.fieldSchema,
+    })
+    .from(categories);
+  const builtins = new Map(categorySchemas.map((schema) => [schema.slug, schema]));
 
-  for (const schema of categorySchemas) {
-    if (!stored.has(schema.slug)) continue;
-    if (readSchemaVersion(stored.get(schema.slug)) >= BUILTIN_SCHEMA_VERSION) continue;
+  for (const row of rows) {
+    const builtin = builtins.get(row.slug);
+    const needsBuiltinRefresh = Boolean(builtin && readSchemaVersion(row.fieldSchema) < BUILTIN_SCHEMA_VERSION);
+    const stripped = stripDisplayRateSchema(row.fieldSchema);
+    const clearDescription = isSeedDisplayRateDescription(row.description);
+
+    if (!needsBuiltinRefresh && !stripped.changed && !clearDescription) continue;
+
     await db
       .update(categories)
       .set({
-        fieldSchema: builtinFieldSchema(schema),
-        variantSchema: schema.variantFields,
+        ...(needsBuiltinRefresh && builtin
+          ? {
+              fieldSchema: builtinFieldSchema(builtin),
+              variantSchema: builtin.variantFields,
+            }
+          : stripped.changed
+            ? { fieldSchema: stripped.schema }
+            : {}),
+        ...(clearDescription ? { description: null } : {}),
       })
-      .where(eq(categories.slug, schema.slug));
+      .where(eq(categories.id, row.id));
   }
 }

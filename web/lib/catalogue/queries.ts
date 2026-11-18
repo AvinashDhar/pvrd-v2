@@ -11,7 +11,7 @@ import {
   products,
 } from "@/lib/db/schema";
 import { fallbackImage } from "@/lib/media";
-import { readDisplayRates, readFields, readFormula, readVariantFields } from "@/lib/catalogue/fields";
+import { readFields, readVariantFields } from "@/lib/catalogue/fields";
 import { ensureBuiltinSchemas } from "@/lib/categories/sync";
 
 function contains(column: AnyColumn, value: string) {
@@ -46,8 +46,6 @@ export async function listCategories() {
     ...row,
     productCount: counts.get(row.id) ?? 0,
     fields: readFields(row.fieldSchema),
-    displayFormula: readFormula(row.fieldSchema),
-    displayRates: readDisplayRates(row.fieldSchema),
     variantFields: readVariantFields(row.variantSchema),
   }));
 }
@@ -64,8 +62,6 @@ export async function getCategory(id: string) {
     ...row,
     productCount: total?.total ?? 0,
     fields: readFields(row.fieldSchema),
-    displayFormula: readFormula(row.fieldSchema),
-    displayRates: readDisplayRates(row.fieldSchema),
     variantFields: readVariantFields(row.variantSchema),
   };
 }
@@ -168,6 +164,7 @@ function productConditions(filters: ProductFilters) {
         contains(products.name, q),
         contains(products.sku, q),
         contains(products.description, q),
+        contains(products.attributesText, q),
         contains(categories.name, q),
         contains(brands.name, q),
         variantMatches(q),
@@ -260,6 +257,7 @@ export async function getProduct(id: string) {
       consumerDiscount: products.consumerDiscount,
       points: products.points,
       description: products.description,
+      attributesText: products.attributesText,
       attributes: products.attributes,
       status: products.status,
       launchedAt: products.launchedAt,

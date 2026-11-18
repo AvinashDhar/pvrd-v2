@@ -15,7 +15,9 @@ export async function PATCH(request: Request) {
   if (access.response) return access.response;
   if (!access.account) return apiError("Sign in to view this account.", 401);
 
-  const { fields, photo } = await readPayload(request);
+  const payload = await readPayload(request);
+  if (payload.error) return apiError(payload.error, failureStatus(payload.error), payload.field);
+  const { fields, photo } = payload;
   const result = await updateCatalogueProfile(access.account, {
     name: fields.name ?? access.account.name,
     email: fields.email === undefined ? access.account.email : cleanEmail(fields.email),

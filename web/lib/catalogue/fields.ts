@@ -1,4 +1,4 @@
-import { BUILTIN_SCHEMA_VERSION, type CategoryField, type DisplayRate, type FieldType } from "@/lib/categories/field-schemas";
+import { BUILTIN_SCHEMA_VERSION, type CategoryField, type FieldType } from "@/lib/categories/field-schemas";
 
 export const fieldTypes: FieldType[] = ["text", "number", "select", "textarea", "image", "checkbox"];
 
@@ -40,14 +40,6 @@ export function readFields(value: unknown): CategoryField[] {
   return [];
 }
 
-export function readFormula(value: unknown) {
-  if (value && typeof value === "object" && "displayFormula" in value) {
-    const formula = (value as { displayFormula?: unknown }).displayFormula;
-    return typeof formula === "string" ? formula : undefined;
-  }
-  return undefined;
-}
-
 export function readSchemaVersion(value: unknown) {
   if (value && typeof value === "object" && "schemaVersion" in value) {
     const version = Number((value as { schemaVersion?: unknown }).schemaVersion);
@@ -56,32 +48,20 @@ export function readSchemaVersion(value: unknown) {
   return 0;
 }
 
-export function readDisplayRates(value: unknown): DisplayRate[] {
-  if (value && typeof value === "object" && Array.isArray((value as { displayRates?: unknown }).displayRates)) {
-    return ((value as { displayRates: unknown[] }).displayRates).flatMap((item) => {
-      if (!item || typeof item !== "object") return [];
-      const rate = item as Partial<DisplayRate>;
-      const formula = String(rate.formula ?? "").trim();
-      if (!formula) return [];
-      const keys = Array.isArray(rate.keys) ? rate.keys.map((key) => String(key)) : [];
-      return [{ label: String(rate.label ?? "Display rate").trim() || "Display rate", formula, keys }];
-    });
+export function stripDisplayRateSchema(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { schema: value, changed: false };
+  const schema = value as Record<string, unknown>;
+  if (!("displayRates" in schema) && !("displayFormula" in schema)) {
+    return { schema: value, changed: false };
   }
-  const formula = readFormula(value);
-  return formula ? [{ label: "Display rate", formula, keys: [] }] : [];
+  const next = { ...schema };
+  delete next.displayRates;
+  delete next.displayFormula;
+  return { schema: next, changed: true };
 }
 
-export function computeDisplayRate(keys: string[], attributes: Record<string, string>) {
-  if (keys.length === 0) return null;
-  let product = 1;
-  for (const key of keys) {
-    const raw = attributes[key];
-    if (!raw?.trim()) return null;
-    const number = Number(raw);
-    if (!Number.isFinite(number)) return null;
-    product *= number;
-  }
-  return Number.isInteger(product) ? String(product) : String(Math.round(product * 100) / 100);
+export function isSeedDisplayRateDescription(value: string | null | undefined) {
+  return Boolean(value?.trim().toLowerCase().startsWith("display rate:"));
 }
 
 export { BUILTIN_SCHEMA_VERSION };

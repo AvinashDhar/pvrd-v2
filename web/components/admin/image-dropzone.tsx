@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_BYTES, imageUploadHint, validateImageFile } from "@/lib/storage/upload-limits";
 
-const accepted = ["image/png", "image/jpeg", "image/webp"];
+function assignFiles(input: HTMLInputElement | null, files: File[]) {
+  if (!input) return;
+  const transfer = new DataTransfer();
+  for (const file of files) transfer.items.add(file);
+  input.files = transfer.files;
+}
 
 export function ImageDropzone({
   id,
@@ -23,10 +29,12 @@ export function ImageDropzone({
   const inputId = id ?? autoId;
   const hintId = `${inputId}-hint`;
   const titleId = `${inputId}-title`;
+  const errorId = `${inputId}-error`;
   const inputRef = useRef<HTMLInputElement>(null);
   const previewsRef = useRef<{ url: string; name: string }[]>([]);
   const [over, setOver] = useState(false);
   const [previews, setPreviews] = useState<{ url: string; name: string }[]>([]);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     previewsRef.current = previews;
@@ -39,21 +47,38 @@ export function ImageDropzone({
   }, []);
 
   function take(list: FileList | File[]) {
-    const files = [...list].filter((file) => accepted.includes(file.type));
-    const transfer = new DataTransfer();
-    for (const file of files) transfer.items.add(file);
-    if (inputRef.current) inputRef.current.files = transfer.files;
+    const selected = [...list];
+    const accepted: File[] = [];
+    let firstError: string | null = null;
+
+    for (const file of selected) {
+      const invalidFile = validateImageFile(file, MAX_IMAGE_BYTES);
+      if (invalidFile) {
+        firstError ??= invalidFile;
+        continue;
+      }
+      accepted.push(file);
+    }
+
+    setLocalError(firstError);
+    assignFiles(inputRef.current, accepted);
     setPreviews((current) => {
       for (const preview of current) URL.revokeObjectURL(preview.url);
-      return files.map((file) => ({ url: URL.createObjectURL(file), name: file.name }));
+      return accepted.map((file) => ({ url: URL.createObjectURL(file), name: file.name }));
     });
+  }
+
+  function onPick(list: FileList | File[] | null | undefined) {
+    const files = [...(list ?? [])];
+    // Clearing value lets the same file be chosen again after a rejected attempt.
+    if (inputRef.current) inputRef.current.value = "";
+    take(files);
   }
 
   function removeAt(index: number) {
     const nextFiles = [...(inputRef.current?.files ?? [])].filter((_, fileIndex) => fileIndex !== index);
-    const transfer = new DataTransfer();
-    for (const file of nextFiles) transfer.items.add(file);
-    if (inputRef.current) inputRef.current.files = transfer.files;
+    assignFiles(inputRef.current, nextFiles);
+    setLocalError(null);
     setPreviews((current) => {
       const removed = current[index];
       if (removed) URL.revokeObjectURL(removed.url);
@@ -62,10 +87,12 @@ export function ImageDropzone({
     inputRef.current?.focus();
   }
 
+  const showInvalid = invalid || Boolean(localError);
+
   return (
     <div data-focus-anchor="" className="space-y-3">
       <div
-        className={`relative block cursor-pointer rounded-xl border border-dashed p-4 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 ${invalid ? "border-destructive bg-destructive/5" : over ? "border-primary bg-primary/5" : "border-border bg-muted/40"}`}
+        className={`relative block cursor-pointer rounded-xl border border-dashed p-4 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 ${showInvalid ? "border-destructive bg-destructive/5" : over ? "border-primary bg-primary/5" : "border-border bg-muted/40"}`}
         onDragOver={(event) => {
           event.preventDefault();
           setOver(true);
@@ -74,7 +101,7 @@ export function ImageDropzone({
         onDrop={(event) => {
           event.preventDefault();
           setOver(false);
-          take(event.dataTransfer.files);
+          onPick(event.dataTransfer.files);
         }}
       >
         <input
@@ -82,25 +109,30 @@ export function ImageDropzone({
           id={inputId}
           name={name}
           type="file"
-          accept={accepted.join(",")}
+          accept={ACCEPTED_IMAGE_TYPES.join(",")}
           multiple={multiple}
           required={required}
           aria-labelledby={titleId}
-          aria-describedby={hintId}
-          aria-invalid={invalid || undefined}
+          aria-describedby={localError ? `${hintId} ${errorId}` : hintId}
+          aria-invalid={showInvalid || undefined}
           className="absolute inset-0 z-10 size-full cursor-pointer opacity-0"
-          onChange={(event) => take(event.target.files ?? [])}
+          onChange={(event) => onPick(event.target.files)}
         />
         <div className="pointer-events-none flex flex-wrap items-center justify-between gap-3">
           <div>
             <p id={titleId} className="text-sm font-medium">{label}</p>
             <p id={hintId} className="text-xs text-muted-foreground">
-              Press Enter or Space to browse, or drag a JPG, PNG, or WEBP here.
+              Press Enter or Space to browse, or drag a JPG, PNG, or WEBP here ({imageUploadHint()} per file).
             </p>
           </div>
           <span className="text-sm font-medium text-primary">Browse</span>
         </div>
       </div>
+      {localError ? (
+        <p id={errorId} role="alert" className="text-sm text-destructive">
+          {localError}
+        </p>
+      ) : null}
       {previews.length > 0 ? (
         <div className="flex flex-wrap gap-3">
           {previews.map((preview, index) => (

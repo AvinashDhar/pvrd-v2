@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { accountFromToken, getRequestAccount, type CatalogueAccount } from "@/lib/auth/session";
 import { roleLabel } from "@/lib/auth/access";
+import {
+  MAX_SINGLE_UPLOAD_REQUEST_BYTES,
+  contentLengthError,
+  isUploadSizeMessage,
+  megabytesLabel,
+  validateImageFile,
+} from "@/lib/storage/upload-limits";
 
 const attempts = new Map<string, number[]>();
 
@@ -78,14 +85,28 @@ export async function readPayload(request: Request) {
         if (typeof value === "string" || typeof value === "number") fields[key] = String(value);
       }
     }
-    return { fields, photo: null as File | null };
+    return { fields, photo: null as File | null, error: null as string | null, field: undefined as string | undefined };
+  }
+
+  const oversized = contentLengthError(request, MAX_SINGLE_UPLOAD_REQUEST_BYTES);
+  if (oversized) {
+    return { fields: {}, photo: null as File | null, error: oversized, field: "photo" };
   }
 
   let form: FormData;
   try {
     form = await request.formData();
-  } catch {
-    return { fields: {}, photo: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (isUploadSizeMessage(message) || /body|limit|large/i.test(message)) {
+      return {
+        fields: {},
+        photo: null as File | null,
+        error: `This upload is too large. Keep the request under ${megabytesLabel(MAX_SINGLE_UPLOAD_REQUEST_BYTES)}.`,
+        field: "photo",
+      };
+    }
+    return { fields: {}, photo: null as File | null, error: "The request body could not be read.", field: undefined };
   }
   const fields: Record<string, string> = {};
   let photo: File | null = null;
@@ -96,10 +117,15 @@ export async function readPayload(request: Request) {
     }
     fields[key] = value;
   }
-  return { fields, photo };
+  if (photo) {
+    const invalid = validateImageFile(photo);
+    if (invalid) return { fields, photo: null, error: invalid, field: "photo" };
+  }
+  return { fields, photo, error: null as string | null, field: undefined as string | undefined };
 }
 
 export function failureStatus(error: string) {
+  if (isUploadSizeMessage(error)) return 413;
   if (/already uses/i.test(error)) return 409;
   if (/incorrect/i.test(error)) return 401;
   if (/waiting|deactivated|blocked|cannot sign in/i.test(error)) return 403;

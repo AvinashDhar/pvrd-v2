@@ -4,13 +4,12 @@ import { useActionState, useState } from "react";
 import { ActionForm, FormBanner, FormField } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldListEditor } from "@/components/admin/field-list-editor";
 import { ImageDropzone } from "@/components/admin/image-dropzone";
 import { saveCategory } from "@/lib/actions/categories";
 import { starterFields } from "@/lib/catalogue/fields";
-import type { CategoryField, DisplayRate } from "@/lib/categories/field-schemas";
+import type { CategoryField } from "@/lib/categories/field-schemas";
 
 export function CategoryForm({
   category,
@@ -21,15 +20,12 @@ export function CategoryForm({
     description: string | null;
     status: string;
     imageUrl: string | null;
-    displayFormula?: string;
-    displayRates?: DisplayRate[];
     fields: CategoryField[];
     variantFields: CategoryField[];
   };
 }) {
   const [state, action, pending] = useActionState(saveCategory, null);
   const [removed, setRemoved] = useState(false);
-  const [rates, setRates] = useState<DisplayRate[]>(category?.displayRates ?? []);
 
   return (
     <ActionForm action={action} state={state} autoComplete="off" className="pvrd-card max-w-4xl space-y-5 p-4 sm:p-6">
@@ -49,53 +45,6 @@ export function CategoryForm({
       <FormField label="Description" name="description" state={state} hint="Enter adds a new line. Press Ctrl+Enter or ⌘+Enter to save.">
         <Textarea name="description" defaultValue={category?.description ?? ""} maxLength={2000} />
       </FormField>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <Label>Display rates</Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setRates((current) => [...current, { label: "Display rate", formula: "", keys: [] }])}
-          >
-            Add rate
-          </Button>
-        </div>
-        <input type="hidden" name="displayRates" value={JSON.stringify(rates)} />
-        {rates.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No display rate. Add one when a size should be shown as a calculated measurement.</p>
-        ) : (
-          rates.map((rate, index) => (
-            <div
-              key={`${rate.label}-${index}`}
-              className="grid gap-2 rounded-xl bg-muted/50 p-3 sm:grid-cols-[minmax(0,0.6fr)_minmax(0,1fr)_auto]"
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-                if (!(event.target instanceof HTMLInputElement)) return;
-                event.preventDefault();
-                const items = [...event.currentTarget.querySelectorAll<HTMLElement>("input, button")].filter((item) => !item.hasAttribute("disabled"));
-                const next = items[items.indexOf(event.target) + 1];
-                next?.focus();
-              }}
-            >
-              <Input
-                value={rate.label}
-                aria-label="Display rate label"
-                onChange={(event) => setRates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))}
-              />
-              <Input
-                value={rate.formula}
-                aria-label="Display rate formula"
-                placeholder="Rod Length × Rod Diameter × Plate Thickness"
-                onChange={(event) => setRates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, formula: event.target.value } : item))}
-              />
-              <Button type="button" variant="outline" onClick={() => setRates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
-                Remove
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
       <div className="grid gap-2">
         <ImageDropzone
           name="image"

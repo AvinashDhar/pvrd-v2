@@ -128,6 +128,8 @@ export const products = mysqlTable(
     consumerDiscount: decimal("consumer_discount", { precision: 5, scale: 2 }),
     points: int("points").default(0),
     description: text("description"),
+    /** Free-text search keywords for admin; not shown on storefront or mobile listings. */
+    attributesText: text("attributes_text"),
     attributes: json("attributes").$type<Record<string, unknown>>().default({}),
     status: visibility().default("active").notNull(),
     launchedAt: datetime("launched_at", { mode: "date" }),

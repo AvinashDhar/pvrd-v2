@@ -49,7 +49,6 @@ export default async function CategoriesPage() {
               </div>
               <p className="mt-4 text-xs text-muted-foreground">
                 {category.variantFields.length > 0 ? "Variant schema enabled" : "No variants configured"}
-                {category.displayFormula ? ` · ${category.displayFormula}` : ""}
               </p>
             </div>
           </Link>

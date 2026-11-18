@@ -46,7 +46,7 @@ export default async function ProductsPage({
       <form action="/admin/products" className="pvrd-card grid min-w-0 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <label className="grid min-w-0 gap-1.5 xl:col-span-2">
           <span className="text-xs font-medium text-muted-foreground">Search</span>
-          <Input name="q" defaultValue={filters.q} placeholder="Name, SKU, description, finish, size" />
+          <Input name="q" defaultValue={filters.q} placeholder="Name, SKU, description, attributes, finish, size" />
         </label>
         <Select name="categoryId" label="Category" value={filters.categoryId} options={categories.map((category) => ({ value: category.id, label: category.name }))} />
         <Select name="brandId" label="Brand" value={filters.brandId} options={brands.map((brand) => ({ value: brand.id, label: brand.name }))} />

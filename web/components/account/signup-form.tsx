@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { ActionForm, FieldIssue, FormBanner, invalidProps } from "@/components/action-form";
+import { ImageFileInput } from "@/components/admin/image-file-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,9 +102,9 @@ export function SignupForm({ returnTo }: { returnTo?: string | null }) {
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="photo">Profile photo</Label>
-          <Input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" {...invalidProps(state, "photo", "photo-hint")} />
+          <ImageFileInput id="photo" name="photo" describedBy="photo-hint" invalid={state?.field === "photo"} />
           <FieldIssue state={state} name="photo" />
-          <p id="photo-hint" className="text-xs text-muted-foreground">Optional. JPG, PNG, or WEBP, up to 2 MB.</p>
+          <p id="photo-hint" className="text-xs text-muted-foreground">Optional. JPG, PNG, or WEBP, up to 5 MB.</p>
         </div>
         <FormBanner state={state} />
         <Button type="submit" className="w-full" size="lg" disabled={pending}>

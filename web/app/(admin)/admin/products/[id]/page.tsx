@@ -6,8 +6,7 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { MediaImage } from "@/components/catalogue/media-image";
 import { ConfirmForm } from "@/components/admin/confirm-form";
 import { deleteProduct, setProductStatus } from "@/lib/actions/products";
-import { getCategory, getProduct } from "@/lib/catalogue/queries";
-import { computeDisplayRate } from "@/lib/catalogue/fields";
+import { getProduct } from "@/lib/catalogue/queries";
 import { fallbackImage } from "@/lib/media";
 import { formatINR } from "@/lib/format";
 
@@ -19,11 +18,6 @@ export default async function ProductDetailPage({
   const { id } = await params;
   const product = await getProduct(id);
   if (!product) notFound();
-  const category = await getCategory(product.categoryId);
-  const rates = (category?.displayRates ?? []).map((rate) => ({
-    ...rate,
-    value: computeDisplayRate(rate.keys, product.attributes),
-  }));
 
   return (
     <div className="space-y-5">
@@ -54,6 +48,12 @@ export default async function ProductDetailPage({
             <StatusBadge value={product.status} />
           </div>
           <p className="text-sm text-muted-foreground">{product.description}</p>
+          {product.attributesText ? (
+            <div>
+              <p className="text-xs text-muted-foreground">Attributes (search only)</p>
+              <p className="whitespace-pre-wrap text-sm font-medium">{product.attributesText}</p>
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             {[
               ["Category", product.categoryName],
@@ -69,17 +69,6 @@ export default async function ProductDetailPage({
               </div>
             ))}
           </div>
-          {rates.length > 0 ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {rates.map((rate) => (
-                <div key={rate.label}>
-                  <p className="text-xs text-muted-foreground">{rate.label}</p>
-                  <p className="font-medium">{rate.value ?? "—"}</p>
-                  <p className="text-[11px] text-muted-foreground">{rate.formula}</p>
-                </div>
-              ))}
-            </div>
-          ) : null}
           {Object.entries(product.attributes).length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {Object.entries(product.attributes).map(([key, value]) => (

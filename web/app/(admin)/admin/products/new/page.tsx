@@ -17,8 +17,6 @@ export default async function NewProductPage() {
           status: category.status,
           fields: category.fields,
           variantFields: category.variantFields,
-          displayFormula: category.displayFormula,
-          displayRates: category.displayRates,
         }))}
       brands={brands.map((brand) => ({ id: brand.id, name: brand.name }))}
     />

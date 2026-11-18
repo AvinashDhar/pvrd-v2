@@ -1,6 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { rasterizeImage, mapLimited } from "@/lib/catalogues/images";
-import { computeDisplayRate } from "@/lib/catalogue/fields";
 import { getCategory } from "@/lib/catalogue/queries";
 import { getCompanySettings } from "@/lib/db/company";
 import { db } from "@/lib/db";
@@ -121,11 +120,6 @@ export async function buildCataloguePdf(categoryId: string): Promise<{ model: Ca
       const label = field.group ? `${field.group} · ${field.label}` : field.label;
       return [{ label, value }];
     });
-    for (const rate of category.displayRates) {
-      const value = computeDisplayRate(rate.keys, attributes);
-      if (!value) continue;
-      features.push({ label: rate.label, value: rate.formula ? `${value} (${rate.formula})` : value });
-    }
     return {
       name: row.name,
       brand: row.brandName?.trim() || "",

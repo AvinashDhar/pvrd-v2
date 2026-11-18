@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { ActionForm, CheckField, FormBanner, FormField } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
+import { ImageFileInput } from "@/components/admin/image-file-input";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { saveBrand } from "@/lib/actions/brands";
@@ -41,8 +42,8 @@ export function BrandForm({
       <FormField label="Description" name="description" state={state} hint="Enter adds a new line. Press Ctrl+Enter or ⌘+Enter to save.">
         <Textarea name="description" defaultValue={brand?.description ?? ""} maxLength={2000} />
       </FormField>
-      <FormField label={brand ? "Replace logo" : "Logo"} name="logo" state={state} required={!brand?.logoUrl}>
-        <Input name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
+      <FormField label={brand ? "Replace logo" : "Logo"} name="logo" state={state} required={!brand?.logoUrl} hint="JPG, PNG, or WEBP, up to 5 MB.">
+        <ImageFileInput name="logo" required={!brand?.logoUrl} invalid={state?.field === "logo"} />
       </FormField>
       {brand?.logoUrl ? <img src={brand.logoUrl} alt="" className="h-16 w-auto rounded-lg border border-border object-contain" /> : null}
       <fieldset className="space-y-2">

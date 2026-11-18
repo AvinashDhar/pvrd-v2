@@ -49,17 +49,6 @@ export default async function PublicProductPage({
           </div>
           <div className="flex flex-1 flex-col px-5 py-5 sm:px-6">
           {product.description ? <p className="text-base leading-relaxed text-muted-foreground">{product.description}</p> : null}
-          {product.displayRates.length > 0 ? (
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {product.displayRates.map((rate) => (
-                <div key={rate.label} className="rounded-2xl bg-muted/70 px-4 py-3">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{rate.label}</p>
-                  <p className="mt-1 text-base font-semibold">{rate.value ?? "—"}</p>
-                  <p className="text-sm text-muted-foreground">{rate.formula}</p>
-                </div>
-              ))}
-            </div>
-          ) : null}
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {product.specs.map((spec) => (
               <div key={spec.label} className="rounded-2xl bg-muted/70 px-4 py-3">

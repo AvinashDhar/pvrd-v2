@@ -12,8 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageDropzone } from "@/components/admin/image-dropzone";
 import { saveProduct } from "@/lib/actions/products";
 import { pricingFieldHelp } from "@/lib/pricing";
-import { computeDisplayRate } from "@/lib/catalogue/fields";
-import type { CategoryField, DisplayRate } from "@/lib/categories/field-schemas";
+import { validateImageFile } from "@/lib/storage/upload-limits";
+import type { CategoryField } from "@/lib/categories/field-schemas";
 
 const columnKeys = new Set([
   "image",
@@ -34,8 +34,6 @@ type FormCategory = {
   status: string;
   fields: CategoryField[];
   variantFields: CategoryField[];
-  displayFormula?: string;
-  displayRates?: DisplayRate[];
 };
 
 export type FormVariant = {
@@ -65,6 +63,7 @@ export function ProductForm({
     consumerDiscount: string | null;
     points: number | null;
     description: string | null;
+    attributesText?: string | null;
     status: string;
     attributes: Record<string, string>;
     images: { id: string; url: string; isPrimary: boolean }[];
@@ -92,7 +91,6 @@ export function ProductForm({
   );
   const extraFields = (category?.fields ?? []).filter((field) => !columnKeys.has(field.key));
   const groups = groupFields(extraFields);
-  const rates = category?.displayRates ?? [];
 
   useEffect(() => {
     const pendingFocus = imageFocus.current;
@@ -221,7 +219,6 @@ export function ProductForm({
                 />
               ))}
             </div>
-            <DisplayRates rates={ratesFor(rates, group.fields)} attributes={attributes} />
           </div>
         ))}
         <FormField
@@ -231,6 +228,19 @@ export function ProductForm({
           hint="Enter adds a new line. Press Ctrl+Enter or ⌘+Enter to save."
         >
           <Textarea name="description" defaultValue={product?.description ?? ""} maxLength={2000} />
+        </FormField>
+        <FormField
+          label="Attributes"
+          name="attributesText"
+          state={state}
+          hint="Free-text keywords used only for search matching. Not shown on the products page or mobile app."
+        >
+          <Textarea
+            name="attributesText"
+            defaultValue={product?.attributesText ?? ""}
+            maxLength={4000}
+            placeholder="e.g. antique brass aldrop heavy duty door bolt"
+          />
         </FormField>
       </section>
 
@@ -308,12 +318,7 @@ export function ProductForm({
 
       {category.variantFields.length > 0 ? (
         <section aria-labelledby={`${formId}-variants`} className="pvrd-card space-y-4 p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id={`${formId}-variants`} className="font-heading text-base font-semibold">Variants</h2>
-            <Button id={`${formId}-add-variant`} type="button" variant="outline" onClick={addVariant}>
-              Add variant
-            </Button>
-          </div>
+          <h2 id={`${formId}-variants`} className="font-heading text-base font-semibold">Variants</h2>
           {variants.map((variant, index) => (
             <article id={`${formId}-variant-${index}`} key={variant.id ?? index} className="grid min-w-0 gap-3 rounded-xl bg-muted/50 p-3 sm:grid-cols-2" aria-label={`Variant ${index + 1}`}>
               {category.variantFields.map((field) => field.type === "image" ? (
@@ -343,6 +348,9 @@ export function ProductForm({
               </Button>
             </article>
           ))}
+          <Button id={`${formId}-add-variant`} type="button" variant="outline" onClick={addVariant}>
+            Add variant
+          </Button>
         </section>
       ) : null}
 
@@ -422,29 +430,6 @@ function groupFields(fields: CategoryField[]) {
     else groups.push({ name, fields: [field] });
   }
   return groups;
-}
-
-function ratesFor(rates: DisplayRate[], fields: CategoryField[]) {
-  const keys = new Set(fields.map((field) => field.key));
-  return rates.filter((rate) => rate.keys.some((key) => keys.has(key)));
-}
-
-function DisplayRates({ rates, attributes }: { rates: DisplayRate[]; attributes: Record<string, string> }) {
-  if (rates.length === 0) return null;
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {rates.map((rate) => {
-        const value = computeDisplayRate(rate.keys, attributes);
-        return (
-          <div key={rate.label} className="rounded-xl border border-border px-3 py-2">
-            <p className="text-xs font-medium">{rate.label}</p>
-            <p className="text-[11px] text-muted-foreground">{rate.formula}</p>
-            <p className="mt-1 text-sm font-semibold">{value ?? "Enter the sizes to calculate this rate."}</p>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 function SpecField({
@@ -531,8 +516,10 @@ function SpecField({
 
 function VariantImageField({ index, field, imageUrl }: { index: number; field: CategoryField; imageUrl?: string | null }) {
   const id = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = useRef<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -540,11 +527,42 @@ function VariantImageField({ index, field, imageUrl }: { index: number; field: C
     };
   }, []);
 
-  function useFile(file: File | undefined) {
+  function useFile(file: File | null) {
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
-    const url = file ? URL.createObjectURL(file) : null;
+    if (!file) {
+      previewUrl.current = null;
+      setPreview(null);
+      setLocalError(null);
+      if (inputRef.current) {
+        const transfer = new DataTransfer();
+        inputRef.current.files = transfer.files;
+      }
+      return;
+    }
+
+    const message = validateImageFile(file);
+    if (message) {
+      previewUrl.current = null;
+      setPreview(null);
+      setLocalError(message);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+        const transfer = new DataTransfer();
+        inputRef.current.files = transfer.files;
+      }
+      return;
+    }
+
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    if (inputRef.current) {
+      inputRef.current.value = "";
+      inputRef.current.files = transfer.files;
+    }
+    const url = URL.createObjectURL(file);
     previewUrl.current = url;
     setPreview(url);
+    setLocalError(null);
   }
 
   return (
@@ -554,32 +572,38 @@ function VariantImageField({ index, field, imageUrl }: { index: number; field: C
         {field.required ? <RequiredMark /> : null}
       </Label>
       <div
-        className="rounded-xl border border-dashed border-border bg-background p-3 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
+        className={`rounded-xl border border-dashed bg-background p-3 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 ${localError ? "border-destructive" : "border-border"}`}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
-          const file = [...event.dataTransfer.files].find((item) => item.type.startsWith("image/"));
-          const input = event.currentTarget.querySelector("input");
-          if (!file || !input) return;
-          const transfer = new DataTransfer();
-          transfer.items.add(file);
-          input.files = transfer.files;
-          input.dispatchEvent(new Event("change", { bubbles: true }));
+          const file = [...event.dataTransfer.files].find((item) => item.type.startsWith("image/")) ?? null;
           useFile(file);
         }}
       >
-        <Input
+        <input
+          ref={inputRef}
           id={id}
           name={`variantImage_${index}`}
           type="file"
           accept="image/png,image/jpeg,image/webp"
           required={field.required && !imageUrl}
-          aria-describedby={`${id}-hint`}
-          onChange={(event) => useFile(event.target.files?.[0])}
+          aria-describedby={localError ? `${id}-hint ${id}-error` : `${id}-hint`}
+          aria-invalid={localError ? true : undefined}
+          className="h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-3 py-1 text-base outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium md:h-9 md:text-sm"
+          onChange={(event) => {
+            const file = event.target.files?.[0] ?? null;
+            event.target.value = "";
+            useFile(file && file.size > 0 ? file : null);
+          }}
         />
         <p id={`${id}-hint`} className="mt-1 text-xs text-muted-foreground">
-          Choose a file with Enter or Space, or drop an image here.
+          Choose a file with Enter or Space, or drop an image here (JPG, PNG, or WEBP, up to 5 MB).
         </p>
+        {localError ? (
+          <p id={`${id}-error`} role="alert" className="mt-1 text-sm text-destructive">
+            {localError}
+          </p>
+        ) : null}
       </div>
       {preview || imageUrl ? <img src={preview || imageUrl || ""} alt="" className="h-20 w-28 rounded-lg border border-border object-cover" /> : null}
     </div>

@@ -21,12 +21,15 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/*": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
   },
-  // Category/product/banner uploads allow 2 MB in storeImage. Next rejects the
-  // Server Action body at 1 MB by default (before the action runs), which shows
-  // up as a bare 500 when replacing a category image with a typical photo.
+  // Global Server Action ceiling. App code enforces tighter rules:
+  // - 5 MB per image everywhere (categories, banners, brands, logos, photos)
+  // - 50 MB total for product create/update (many product + variant images)
+  // Next rejects oversized bodies before the action runs, so this must stay
+  // high enough for product posts. Single-image actions still return a clear
+  // form/API error when a file exceeds 5 MB.
   experimental: {
     serverActions: {
-      bodySizeLimit: "4mb",
+      bodySizeLimit: "50mb",
     },
   },
   images: {

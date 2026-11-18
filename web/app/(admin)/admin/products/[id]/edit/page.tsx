@@ -31,8 +31,6 @@ export default async function EditProductPage({
         status: category.status,
         fields: category.fields,
         variantFields: category.variantFields,
-        displayFormula: category.displayFormula,
-        displayRates: category.displayRates,
       }))}
       brands={brandOptions}
       product={{
@@ -47,6 +45,7 @@ export default async function EditProductPage({
         consumerDiscount: product.consumerDiscount,
         points: product.points,
         description: product.description,
+        attributesText: product.attributesText,
         status: product.status,
         attributes: product.attributes,
         images: product.images.map((image) => ({

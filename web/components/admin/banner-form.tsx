@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useActionState } from "react";
 import { ActionForm, CheckField, FormBanner, FormField } from "@/components/action-form";
+import { ImageFileInput } from "@/components/admin/image-file-input";
 import { NumberInput } from "@/components/number-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,8 +79,8 @@ export function BannerForm({
       <FormField label="Description" name="description" state={state} required hint="Enter adds a new line. Press Ctrl+Enter or ⌘+Enter to save.">
         <Textarea name="description" defaultValue={banner?.description ?? ""} maxLength={2000} />
       </FormField>
-      <FormField label={banner ? "Replace image" : "Banner image"} name="image" state={state} required={!banner?.imageUrl} hint="One new image is stored. Catalogue product photos stay on this server and are not uploaded.">
-        <Input name="image" type="file" accept="image/png,image/jpeg,image/webp" />
+      <FormField label={banner ? "Replace image" : "Banner image"} name="image" state={state} required={!banner?.imageUrl} hint="JPG, PNG, or WEBP, up to 5 MB. One new image is stored.">
+        <ImageFileInput name="image" required={!banner?.imageUrl} invalid={state?.field === "image"} />
       </FormField>
       {banner?.imageUrl ? <img src={banner.imageUrl} alt="" className="h-24 w-auto rounded-lg border border-border object-contain" /> : null}
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">

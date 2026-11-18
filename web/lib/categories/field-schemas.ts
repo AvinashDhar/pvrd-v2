@@ -16,23 +16,15 @@ export type CategoryField = {
   group?: string;
 };
 
-export type DisplayRate = {
-  label: string;
-  formula: string;
-  keys: string[];
-};
-
 export type CategorySchema = {
   slug: string;
   name: string;
   fields: CategoryField[];
   variantFields: CategoryField[];
-  displayFormula?: string;
-  displayRates?: DisplayRate[];
 };
 
 /** Bump when built-in category fields change so stored schemas are refreshed once. */
-export const BUILTIN_SCHEMA_VERSION = 3;
+export const BUILTIN_SCHEMA_VERSION = 4;
 
 export const finishOptions = [
   "SS",
@@ -62,14 +54,9 @@ function variantRates(required = true): CategoryField[] {
 }
 
 export function builtinFieldSchema(schema: CategorySchema) {
-  const displayRates = schema.displayRates ?? (schema.displayFormula
-    ? [{ label: "Display rate", formula: schema.displayFormula, keys: [] }]
-    : []);
   return {
     schemaVersion: BUILTIN_SCHEMA_VERSION,
     fields: schema.fields,
-    displayFormula: displayRates.map((rate) => rate.formula).filter(Boolean).join(" · ") || schema.displayFormula,
-    displayRates,
   };
 }
 
@@ -106,14 +93,6 @@ export const categorySchemas: CategorySchema[] = [
   {
     slug: "door-aldrop",
     name: "Door Aldrop",
-    displayFormula: "Rod Length × Rod Diameter × Plate Thickness",
-    displayRates: [
-      {
-        label: "Display rate",
-        formula: "Rod Length × Rod Diameter × Plate Thickness",
-        keys: ["rodLength", "rodDiameter", "plateThickness"],
-      },
-    ],
     fields: withCommon([
       { key: "size", label: "Size", type: "text", required: true },
       { key: "rodLength", label: "Rod Length", type: "number", required: true },
@@ -131,14 +110,6 @@ export const categorySchemas: CategorySchema[] = [
   {
     slug: "door-handles",
     name: "Door Handles",
-    displayFormula: "Plate Length × Plate Width × Plate Thickness",
-    displayRates: [
-      {
-        label: "Display rate",
-        formula: "Plate Length × Plate Width × Plate Thickness",
-        keys: ["plateLength", "plateWidth", "plateThickness"],
-      },
-    ],
     fields: withCommon([
       { key: "size", label: "Size", type: "text", required: true },
       { key: "plateLength", label: "Plate Length", type: "number", required: true },
@@ -156,23 +127,6 @@ export const categorySchemas: CategorySchema[] = [
   {
     slug: "door-kits",
     name: "Door Kits",
-    displayRates: [
-      {
-        label: "Aldrop display rate",
-        formula: "Rod Length × Rod Diameter × Plate Thickness",
-        keys: ["aldropRodLength", "aldropRodDiameter", "aldropPlateThickness"],
-      },
-      {
-        label: "Handle display rate",
-        formula: "Plate Length × Plate Width × Plate Thickness",
-        keys: ["handlePlateLength", "handlePlateWidth", "handlePlateThickness"],
-      },
-      {
-        label: "Latch display rate",
-        formula: "Rod Length × Rod Diameter × Plate Thickness",
-        keys: ["latchRodLength", "latchRodDiameter", "latchPlateThickness"],
-      },
-    ],
     fields: withCommon([
       { key: "size", label: "Size", type: "text", required: true },
       { key: "aldrop", label: "Aldrop", type: "text", required: true, group: "Aldrop" },

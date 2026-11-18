@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { ActionForm, FormBanner, FormField } from "@/components/action-form";
+import { ImageFileInput } from "@/components/admin/image-file-input";
 import { showNotice } from "@/components/admin/notice-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,8 +38,8 @@ export function SettingsForm({ settings }: { settings: CompanySettings }) {
         <FormField label="Website URL" name="website" state={state}>
           <Input name="website" type="url" autoComplete="url" defaultValue={settings.website} maxLength={255} />
         </FormField>
-        <FormField label="Logo upload" name="logo" state={state}>
-          <Input name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
+        <FormField label="Logo upload" name="logo" state={state} hint="JPG, PNG, or WEBP, up to 5 MB.">
+          <ImageFileInput name="logo" invalid={state?.field === "logo"} />
         </FormField>
       </div>
       {logoUrl ? (
