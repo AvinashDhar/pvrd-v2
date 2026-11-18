@@ -11,8 +11,19 @@ import { BUILTIN_SCHEMA_VERSION } from "@/lib/categories/field-schemas";
 import { getCategory } from "@/lib/catalogue/queries";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
 import { removeStoredPdf } from "@/lib/storage/objects";
+import { insertSubcategoryDraft } from "@/lib/actions/subcategories";
+import {
+  findDuplicateDraftName,
+  readSubcategoryDrafts,
+  validateSubcategoryDraft,
+} from "@/lib/catalogue/subcategory-drafts";
 import { flash } from "@/lib/flash";
 import { formError } from "@/lib/forms";
+import {
+  collectCategorySaveUploadFiles,
+  validateCategorySaveUploads,
+  validateImageFile,
+} from "@/lib/storage/upload-limits";
 
 function refresh() {
   revalidatePath("/admin/categories");
@@ -144,14 +155,34 @@ export async function saveCategory(_previous: { error: string; field?: string } 
     if (variantError) return formError(variantError, "variantFields");
   }
 
+  const drafts = readSubcategoryDrafts(formData);
+  for (const draft of drafts) {
+    const draftError = validateSubcategoryDraft(draft);
+    if (draftError) return formError(draftError.error, draftError.field);
+  }
+  const duplicateName = findDuplicateDraftName(
+    drafts,
+    current?.subcategories.map((item) => item.name) ?? [],
+  );
+  if (duplicateName) return formError(duplicateName.error, duplicateName.field);
+
+  const categoryImage = formData.get("image");
+  if (categoryImage instanceof File && categoryImage.size > 0) {
+    const imageInvalid = validateImageFile(categoryImage);
+    if (imageInvalid) return formError(imageInvalid, "image");
+  }
+  const uploadError = validateCategorySaveUploads(collectCategorySaveUploadFiles(formData));
+  if (uploadError) {
+    return formError(uploadError, uploadError.includes("together") ? "subcategories" : "image");
+  }
+
   const categoryId = current?.id ?? newId();
   let imageUrl = current?.imageUrl ?? null;
   let imageKey = current?.imageKey ?? null;
-  const image = formData.get("image");
   const removeImage = formData.get("removeImage") === "1";
-  if (image instanceof File && image.size > 0) {
+  if (categoryImage instanceof File && categoryImage.size > 0) {
     try {
-      const stored = await storeImage(image, { folder: "categories", id: categoryId });
+      const stored = await storeImage(categoryImage, { folder: "categories", id: categoryId });
       imageUrl = stored.url;
       imageKey = stored.key;
     } catch (error) {
@@ -192,20 +223,45 @@ export async function saveCategory(_previous: { error: string; field?: string } 
       entityType: "category",
       entityId: categoryId,
     });
-    refresh();
-    await flash("success", "Category updated.");
-    redirect(`/admin/categories/${categoryId}`);
+  } else {
+    const slug = await uniqueSlug(name);
+    await db.insert(categories).values({ id: categoryId, ...values, slug });
+    await db.insert(activityLogs).values({
+      title: `${session.name} added category ${name}`,
+      entityType: "category",
+      entityId: categoryId,
+    });
   }
 
-  const slug = await uniqueSlug(name);
-  await db.insert(categories).values({ id: categoryId, ...values, slug });
-  await db.insert(activityLogs).values({
-    title: `${session.name} added category ${name}`,
-    entityType: "category",
-    entityId: categoryId,
-  });
+  try {
+    for (const draft of drafts) {
+      await insertSubcategoryDraft(categoryId, draft, session.name);
+    }
+  } catch (error) {
+    return formError(
+      error instanceof Error ? error.message : "Could not save one of the subcategories.",
+      "subcategories",
+    );
+  }
+
   refresh();
-  await flash("success", "Category added.");
+  revalidatePath(`/admin/categories/${categoryId}`);
+  const draftCount = drafts.length;
+  if (current) {
+    await flash(
+      "success",
+      draftCount > 0
+        ? `Category updated. Added ${draftCount} subcategor${draftCount === 1 ? "y" : "ies"}.`
+        : "Category updated.",
+    );
+  } else {
+    await flash(
+      "success",
+      draftCount > 0
+        ? `Category added with ${draftCount} subcategor${draftCount === 1 ? "y" : "ies"}.`
+        : "Category added.",
+    );
+  }
   redirect(`/admin/categories/${categoryId}`);
 }
 

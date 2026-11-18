@@ -59,6 +59,7 @@ export function ProductStream({
   trade,
   query,
   category,
+  subcategory,
   sort,
 }: {
   initialItems: CatalogueItem[];
@@ -66,6 +67,7 @@ export function ProductStream({
   trade: boolean;
   query?: string;
   category?: string;
+  subcategory?: string;
   sort: CatalogueSort;
 }) {
   const layout = useSyncExternalStore(subscribe, readFrame, () => serverFrame);
@@ -87,6 +89,7 @@ export function ProductStream({
       const page = await loadCatalogueBatch({
         q: query,
         category,
+        subcategory,
         sort,
         offset: offsetRef.current,
       });
@@ -108,7 +111,7 @@ export function ProductStream({
       loadingRef.current = false;
       setLoading(false);
     }
-  }, [category, loadingRef, offsetRef, query, sort, totalRef]);
+  }, [category, loadingRef, offsetRef, query, sort, subcategory, totalRef]);
 
   useEffect(() => {
     const node = sentinelRef.current;

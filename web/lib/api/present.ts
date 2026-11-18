@@ -11,6 +11,8 @@ type Card = {
   brand: string;
   category: string;
   categorySlug: string;
+  subcategory?: string;
+  subcategorySlug?: string;
   price: number;
   mrp: number;
   image: string;
@@ -36,6 +38,8 @@ export function presentCard(card: Card, trade: boolean, request: Request) {
       brand: card.brand,
       category: card.category,
       categorySlug: card.categorySlug,
+      subcategory: card.subcategory || "",
+      subcategorySlug: card.subcategorySlug || "",
       mrp: card.mrp,
       image,
       sku: card.sku,

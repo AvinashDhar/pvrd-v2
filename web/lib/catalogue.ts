@@ -10,6 +10,15 @@ export async function publicCategories() {
     products: category.productCount,
     image: category.imageUrl || fallbackImage,
     status: category.status,
+    subcategories: category.subcategories
+      .filter((item) => item.status === "active")
+      .map((item) => ({
+        id: item.id,
+        slug: item.slug,
+        name: item.name,
+        products: item.productCount,
+        image: item.imageUrl || fallbackImage,
+      })),
   }));
 }
 
@@ -30,6 +39,7 @@ export async function featuredPublicProducts(limit = 8) {
 export async function pageCatalogue({
   q,
   category,
+  subcategory,
   sort = "relevance",
   trade = false,
   limit,
@@ -37,6 +47,7 @@ export async function pageCatalogue({
 }: {
   q?: string;
   category?: string;
+  subcategory?: string;
   sort?: "relevance" | "name" | "price-asc" | "price-desc";
   trade?: boolean;
   limit: number;
@@ -48,10 +59,19 @@ export async function pageCatalogue({
     : undefined;
   if (category && !match) return { items: [], total: 0 };
 
+  const subcategoryMatch =
+    subcategory && match
+      ? match.subcategories.find(
+          (item) => item.slug === subcategory || item.name.toLowerCase() === subcategory.toLowerCase(),
+        )
+      : undefined;
+  if (subcategory && !subcategoryMatch) return { items: [], total: 0 };
+
   const filters = {
     ...publicList,
     q,
     categoryId: match?.id,
+    subcategoryId: subcategoryMatch?.id,
     ...catalogueSort(sort, trade),
   };
   const [rows, total] = await Promise.all([
@@ -92,17 +112,25 @@ export async function getPublicProduct(id: string) {
   const product = await getProduct(id);
   if (!product || product.status !== "active" || product.categoryStatus !== "active") return null;
   const category = await getCategory(product.categoryId);
+  const subcategory =
+    product.subcategoryId && category
+      ? category.subcategories.find((item) => item.id === product.subcategoryId)
+      : null;
+  const labelFields = subcategory?.fields?.length ? subcategory.fields : category?.fields ?? [];
   const labels = new Map(
-    (category?.fields ?? []).map((field) => [field.key, field.group ? `${field.group} · ${field.label}` : field.label]),
+    labelFields.map((field) => [field.key, field.group ? `${field.group} · ${field.label}` : field.label]),
   );
   return {
     ...toCard({
       ...product,
       brandName: product.brandName,
       categoryName: product.categoryName,
+      subcategoryName: product.subcategoryName,
+      subcategorySlug: product.subcategorySlug,
       image: product.image,
     }),
     categoryId: product.categoryId,
+    subcategoryId: product.subcategoryId,
     sku: product.sku || "",
     description: product.description,
     attributes: product.attributes,
@@ -140,11 +168,13 @@ function toCard(product: {
   name: string;
   brandName: string | null;
   categoryName: string;
+  subcategoryName?: string | null;
   price: string;
   mrp: string;
   image: string;
   sku?: string | null;
   categorySlug?: string;
+  subcategorySlug?: string | null;
 }) {
   return {
     id: product.id,
@@ -152,6 +182,8 @@ function toCard(product: {
     brand: product.brandName || "",
     category: product.categoryName,
     categorySlug: product.categorySlug || "",
+    subcategory: product.subcategoryName || "",
+    subcategorySlug: product.subcategorySlug || "",
     price: Number(product.price),
     mrp: Number(product.mrp),
     image: product.image,

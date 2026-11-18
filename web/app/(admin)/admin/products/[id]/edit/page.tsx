@@ -31,11 +31,19 @@ export default async function EditProductPage({
         status: category.status,
         fields: category.fields,
         variantFields: category.variantFields,
+        subcategories: category.subcategories.map((item) => ({
+          id: item.id,
+          name: item.name,
+          status: item.status,
+          fields: item.fields,
+          variantFields: item.variantFields,
+        })),
       }))}
       brands={brandOptions}
       product={{
         id: product.id,
         categoryId: product.categoryId,
+        subcategoryId: product.subcategoryId,
         brandId: product.brandId,
         name: product.name,
         sku: product.sku,

@@ -29,7 +29,20 @@ export default async function PublicProductPage({
       <p className="text-sm text-muted-foreground">
         <Link href="/products" className="hover:text-primary">Products</Link>
         <span className="mx-2">/</span>
-        <span>{product.category}</span>
+        <Link href={`/products?category=${product.categorySlug}`} className="hover:text-primary">
+          {product.category}
+        </Link>
+        {product.subcategory && product.subcategorySlug ? (
+          <>
+            <span className="mx-2">/</span>
+            <Link
+              href={`/products?category=${product.categorySlug}&subcategory=${product.subcategorySlug}`}
+              className="hover:text-primary"
+            >
+              {product.subcategory}
+            </Link>
+          </>
+        ) : null}
       </p>
 
       <section className="mt-6 grid gap-4 lg:grid-cols-2 lg:items-start">
@@ -39,7 +52,9 @@ export default async function PublicProductPage({
         />
         <div className="pvrd-card flex flex-col overflow-hidden">
           <div className="bg-[#001F3D] px-5 py-5 sm:px-6 sm:py-6">
-            <p className="text-xs font-medium tracking-[0.14em] text-white/70 uppercase">{product.category}</p>
+            <p className="text-xs font-medium tracking-[0.14em] text-white/70 uppercase">
+              {product.subcategory ? `${product.category} · ${product.subcategory}` : product.category}
+            </p>
             <h1 className="mt-1 font-heading text-2xl leading-tight font-semibold tracking-tight text-white sm:text-3xl">{product.name}</h1>
             <p className="mt-1 text-sm text-white/70 sm:text-base">{product.brand} · {product.sku || "No SKU"}</p>
             <div className="mt-4 flex flex-wrap items-baseline gap-3">

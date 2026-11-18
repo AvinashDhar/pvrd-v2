@@ -9,6 +9,7 @@ import {
   productImages,
   productVariants,
   products,
+  subcategories,
 } from "@/lib/db/schema";
 import { fallbackImage } from "@/lib/media";
 import { readFields, readVariantFields } from "@/lib/catalogue/fields";
@@ -41,6 +42,38 @@ export async function listCategories() {
     .from(products)
     .groupBy(products.categoryId);
   const counts = new Map(totals.map((row) => [row.categoryId, row.total]));
+  const nested = await listSubcategories();
+
+  return rows.map((row) => ({
+    ...row,
+    productCount: counts.get(row.id) ?? 0,
+    fields: readFields(row.fieldSchema),
+    variantFields: readVariantFields(row.variantSchema),
+    subcategories: nested.filter((item) => item.categoryId === row.id),
+  }));
+}
+
+export async function listSubcategories(categoryId?: string) {
+  const rows = await db
+    .select()
+    .from(subcategories)
+    .where(categoryId ? eq(subcategories.categoryId, categoryId) : undefined)
+    .orderBy(asc(subcategories.sortOrder), asc(subcategories.name));
+  if (rows.length === 0) return [];
+
+  const totals = await db
+    .select({ subcategoryId: products.subcategoryId, total: count() })
+    .from(products)
+    .where(
+      and(
+        inArray(
+          products.subcategoryId,
+          rows.map((row) => row.id),
+        ),
+      ),
+    )
+    .groupBy(products.subcategoryId);
+  const counts = new Map(totals.map((row) => [row.subcategoryId, row.total]));
 
   return rows.map((row) => ({
     ...row,
@@ -50,19 +83,35 @@ export async function listCategories() {
   }));
 }
 
-export async function getCategory(id: string) {
-  await ensureBuiltinSchemas();
-  const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+export async function getSubcategory(id: string) {
+  const [row] = await db.select().from(subcategories).where(eq(subcategories.id, id)).limit(1);
   if (!row) return null;
   const [total] = await db
     .select({ total: count() })
     .from(products)
-    .where(eq(products.categoryId, id));
+    .where(eq(products.subcategoryId, id));
   return {
     ...row,
     productCount: total?.total ?? 0,
     fields: readFields(row.fieldSchema),
     variantFields: readVariantFields(row.variantSchema),
+  };
+}
+
+export async function getCategory(id: string) {
+  await ensureBuiltinSchemas();
+  const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+  if (!row) return null;
+  const [[total], nested] = await Promise.all([
+    db.select({ total: count() }).from(products).where(eq(products.categoryId, id)),
+    listSubcategories(id),
+  ]);
+  return {
+    ...row,
+    productCount: total?.total ?? 0,
+    fields: readFields(row.fieldSchema),
+    variantFields: readVariantFields(row.variantSchema),
+    subcategories: nested,
   };
 }
 
@@ -132,9 +181,11 @@ export async function getBrand(id: string) {
 export type ProductFilters = {
   q?: string;
   categoryId?: string;
+  subcategoryId?: string;
   brandId?: string;
   status?: string;
   categoryStatus?: "active" | "inactive" | "hidden";
+  subcategoryStatus?: "active" | "inactive" | "hidden";
   excludeId?: string;
   minPrice?: string;
   maxPrice?: string;
@@ -148,6 +199,7 @@ const productSortColumns = {
   name: products.name,
   sku: products.sku,
   category: categories.name,
+  subcategory: subcategories.name,
   brand: brands.name,
   mrp: products.mrp,
   price: products.price,
@@ -166,16 +218,23 @@ function productConditions(filters: ProductFilters) {
         contains(products.description, q),
         contains(products.attributesText, q),
         contains(categories.name, q),
+        contains(subcategories.name, q),
         contains(brands.name, q),
         variantMatches(q),
       ),
     );
   }
   if (filters.categoryId) conditions.push(eq(products.categoryId, filters.categoryId));
+  if (filters.subcategoryId) conditions.push(eq(products.subcategoryId, filters.subcategoryId));
   if (filters.brandId) conditions.push(eq(products.brandId, filters.brandId));
   if (filters.excludeId) conditions.push(ne(products.id, filters.excludeId));
   if (filters.status && filters.status !== "all") conditions.push(eq(products.status, filters.status as "active"));
   if (filters.categoryStatus) conditions.push(eq(categories.status, filters.categoryStatus));
+  if (filters.subcategoryStatus) {
+    conditions.push(
+      or(isNull(products.subcategoryId), eq(subcategories.status, filters.subcategoryStatus)),
+    );
+  }
   if (filters.minPrice) conditions.push(gte(products.price, filters.minPrice));
   if (filters.maxPrice) conditions.push(lte(products.price, filters.maxPrice));
   return conditions;
@@ -193,13 +252,17 @@ function productListQuery(filters: ProductFilters) {
       status: products.status,
       createdAt: products.createdAt,
       categoryId: products.categoryId,
+      subcategoryId: products.subcategoryId,
       categoryName: categories.name,
       categorySlug: categories.slug,
+      subcategoryName: subcategories.name,
+      subcategorySlug: subcategories.slug,
       brandId: products.brandId,
       brandName: brands.name,
     })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
     .leftJoin(brands, eq(products.brandId, brands.id))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(...orderProducts(filters.sort, filters.dir));
@@ -211,6 +274,7 @@ export async function countProducts(filters: ProductFilters = {}) {
     .select({ total: count() })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
     .leftJoin(brands, eq(products.brandId, brands.id))
     .where(conditions.length ? and(...conditions) : undefined);
   return Number(row?.total ?? 0);
@@ -248,6 +312,7 @@ export async function getProduct(id: string) {
     .select({
       id: products.id,
       categoryId: products.categoryId,
+      subcategoryId: products.subcategoryId,
       brandId: products.brandId,
       name: products.name,
       sku: products.sku,
@@ -265,10 +330,14 @@ export async function getProduct(id: string) {
       categoryName: categories.name,
       categorySlug: categories.slug,
       categoryStatus: categories.status,
+      subcategoryName: subcategories.name,
+      subcategorySlug: subcategories.slug,
+      subcategoryStatus: subcategories.status,
       brandName: brands.name,
     })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
     .leftJoin(brands, eq(products.brandId, brands.id))
     .where(eq(products.id, id))
     .limit(1);

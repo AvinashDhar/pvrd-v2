@@ -14,31 +14,62 @@ const sorts = [
   { id: "name", label: "Name" },
 ] as const;
 
+type CategoryOption = {
+  slug: string;
+  name: string;
+  products: number;
+  subcategories: { slug: string; name: string; products: number }[];
+};
+
+function productsHref(input: {
+  query?: string;
+  category?: string;
+  subcategory?: string;
+  sort?: string;
+}) {
+  const params = new URLSearchParams();
+  if (input.query) params.set("q", input.query);
+  if (input.category) params.set("category", input.category);
+  if (input.category && input.subcategory) params.set("subcategory", input.subcategory);
+  if (input.sort && input.sort !== "relevance") params.set("sort", input.sort);
+  const search = params.toString();
+  return search ? `/products?${search}` : "/products";
+}
+
 export function ProductListBar({
   categories,
   query = "",
   category = "",
+  subcategory = "",
   sort = "relevance",
 }: {
-  categories: { slug: string; name: string; products: number }[];
+  categories: CategoryOption[];
   query?: string;
   category?: string;
+  subcategory?: string;
   sort?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState<"sort" | "filter" | null>(null);
   const activeSort = sorts.some((item) => item.id === sort) ? sort : "relevance";
-  const filters = category ? 1 : 0;
+  const filters = (category ? 1 : 0) + (subcategory ? 1 : 0);
+  const activeCategory = categories.find((item) => item.slug === category);
 
-  function visit(next: { category?: string; sort?: string }) {
-    const params = new URLSearchParams();
-    if (query) params.set("q", query);
+  function visit(next: { category?: string; subcategory?: string; sort?: string }) {
     const nextCategory = next.category === undefined ? category : next.category;
+    const nextSubcategory =
+      next.subcategory === undefined
+        ? next.category !== undefined && next.category !== category
+          ? ""
+          : subcategory
+        : next.subcategory;
     const nextSort = next.sort === undefined ? activeSort : next.sort;
-    if (nextCategory) params.set("category", nextCategory);
-    if (nextSort && nextSort !== "relevance") params.set("sort", nextSort);
-    const search = params.toString();
-    const href = search ? `/products?${search}` : "/products";
+    const href = productsHref({
+      query,
+      category: nextCategory,
+      subcategory: nextSubcategory,
+      sort: nextSort,
+    });
     beginAppNavigation(href);
     router.push(href);
     setOpen(null);
@@ -111,7 +142,7 @@ export function ProductListBar({
           <div className="grid gap-1 overflow-y-auto px-4 pb-6">
             <button
               type="button"
-              onClick={() => visit({ category: "" })}
+              onClick={() => visit({ category: "", subcategory: "" })}
               className={cn(
                 "flex items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-medium transition-colors hover:bg-muted active:bg-secondary",
                 category ? "text-[#222]" : "bg-secondary text-primary",
@@ -121,23 +152,48 @@ export function ProductListBar({
               {category ? null : <Check className="size-4" />}
             </button>
             {categories.map((item) => {
-              const selected = item.slug === category;
+              const selected = item.slug === category && !subcategory;
               return (
-                <button
-                  key={item.slug}
-                  type="button"
-                  onClick={() => visit({ category: item.slug })}
-                  className={cn(
-                    "flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition-colors hover:bg-muted active:bg-secondary",
-                    selected ? "bg-secondary text-primary" : "text-[#222]",
-                  )}
-                >
-                  <span className="min-w-0 truncate">{item.name}</span>
-                  <span className="flex shrink-0 items-center gap-2 text-[#8a9199]">
-                    {item.products}
-                    {selected ? <Check className="size-4 text-primary" /> : null}
-                  </span>
-                </button>
+                <div key={item.slug} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => visit({ category: item.slug, subcategory: "" })}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition-colors hover:bg-muted active:bg-secondary",
+                      selected ? "bg-secondary text-primary" : "text-[#222]",
+                    )}
+                  >
+                    <span className="min-w-0 truncate">{item.name}</span>
+                    <span className="flex shrink-0 items-center gap-2 text-[#8a9199]">
+                      {item.products}
+                      {selected ? <Check className="size-4 text-primary" /> : null}
+                    </span>
+                  </button>
+                  {item.slug === category && item.subcategories.length > 0 ? (
+                    <div className="ml-3 space-y-1 border-l border-[#ececec] pl-3">
+                      {item.subcategories.map((child) => {
+                        const childSelected = child.slug === subcategory;
+                        return (
+                          <button
+                            key={child.slug}
+                            type="button"
+                            onClick={() => visit({ category: item.slug, subcategory: child.slug })}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted active:bg-secondary",
+                              childSelected ? "bg-secondary font-medium text-primary" : "text-[#444]",
+                            )}
+                          >
+                            <span className="min-w-0 truncate">{child.name}</span>
+                            <span className="flex shrink-0 items-center gap-2 text-[#8a9199]">
+                              {child.products}
+                              {childSelected ? <Check className="size-4 text-primary" /> : null}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </div>

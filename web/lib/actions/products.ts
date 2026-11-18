@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { activityLogs, newId, productImages, productVariants, products } from "@/lib/db/schema";
 import { getAdminSession } from "@/lib/auth/session";
-import { getCategory, getProduct } from "@/lib/catalogue/queries";
+import { getCategory, getProduct, getSubcategory } from "@/lib/catalogue/queries";
+import { resolveProductSubcategory } from "@/lib/actions/subcategories";
 import { markCataloguesStale } from "@/lib/catalogues/freshness";
 import { removeStoredImage, storeImage } from "@/lib/storage/images";
 import { collectProductUploadFiles, validateProductUploads } from "@/lib/storage/upload-limits";
@@ -59,6 +60,19 @@ export async function saveProduct(_previous: { error: string; field?: string } |
   if (switchingToClosed && category.status !== "active") {
     return formError("Hidden categories cannot take new products.", "categoryId");
   }
+  const subcategoryResult = await resolveProductSubcategory(
+    category.id,
+    String(formData.get("subcategoryId") ?? ""),
+    current?.subcategoryId,
+  );
+  if (!subcategoryResult.ok) {
+    return formError(subcategoryResult.error, "subcategoryId");
+  }
+  const subcategory = subcategoryResult.subcategoryId
+    ? await getSubcategory(subcategoryResult.subcategoryId)
+    : null;
+  const schemaFields = subcategory?.fields?.length ? subcategory.fields : category.fields;
+  const schemaVariantFields = subcategory ? subcategory.variantFields : category.variantFields;
 
   const name = String(formData.get("name") ?? "").trim();
   const sku = String(formData.get("sku") ?? "").trim();
@@ -69,17 +83,17 @@ export async function saveProduct(_previous: { error: string; field?: string } |
   if (name.length > 255) return formError("Name must be 255 characters or fewer.", "name");
   if (sku.length > 64) return formError("SKU must be 64 characters or fewer.", "sku");
   if (!mrp) return formError("Enter an MRP of 0 or more.", "mrp");
-  const priceField = category.fields.find((field) => field.key === "price");
+  const priceField = schemaFields.find((field) => field.key === "price");
   const tradeLabel = pricingFieldHelp.price.label;
   if (priceText && !price) return formError(`Enter a valid ${tradeLabel.toLowerCase()}.`, "price");
   if (priceField?.required && !price) return formError(`${tradeLabel} is required.`, "price");
   const storedPrice = price ?? mrp;
 
-  const brandField = category.fields.find((field) => field.key === "brand");
+  const brandField = schemaFields.find((field) => field.key === "brand");
   const brandId = String(formData.get("brandId") ?? "");
   if ((brandField?.required ?? true) && !brandId) return formError("Choose a brand.", "brandId");
   for (const key of ["contractorDiscount", "consumerDiscount"] as const) {
-    const field = category.fields.find((item) => item.key === key);
+    const field = schemaFields.find((item) => item.key === key);
     const raw = String(formData.get(key) ?? "").trim();
     if (!raw) {
       if (field?.required) return formError(`${field.label} is required.`, key);
@@ -116,7 +130,7 @@ export async function saveProduct(_previous: { error: string; field?: string } |
     attributes = { ...previous, ...attributes };
   }
 
-  for (const field of category.fields) {
+  for (const field of schemaFields) {
     if (!field.required) continue;
     if (["image", "brand", "name", "sku", "mrp", "price", "contractorDiscount", "consumerDiscount", "points", "description"].includes(field.key)) {
       continue;
@@ -129,6 +143,7 @@ export async function saveProduct(_previous: { error: string; field?: string } |
 
   const values = {
     categoryId: category.id,
+    subcategoryId: subcategoryResult.subcategoryId,
     brandId: brandId || null,
     name,
     sku: sku || null,
@@ -156,7 +171,7 @@ export async function saveProduct(_previous: { error: string; field?: string } |
 
   try {
     await syncImages(productId, formData, !current);
-    await syncVariants(productId, formData, category.variantFields, {
+    await syncVariants(productId, formData, schemaVariantFields, {
       name,
       mrp,
       price: storedPrice,

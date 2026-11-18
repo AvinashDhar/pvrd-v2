@@ -53,6 +53,35 @@ export function validateProductUploads(files: File[]) {
   return null;
 }
 
+/**
+ * Category create/update can include the category image plus many new subcategory
+ * images in one Server Action. Cap the combined binary payload to the same ceiling
+ * as products so Next.js does not reject the request with a generic body-size error.
+ */
+export function collectCategorySaveUploadFiles(formData: FormData) {
+  const files: File[] = [];
+  const categoryImage = formData.get("image");
+  if (categoryImage instanceof File && categoryImage.size > 0) files.push(categoryImage);
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("sub.") || !key.endsWith(".image")) continue;
+    if (value instanceof File && value.size > 0) files.push(value);
+  }
+  return files;
+}
+
+export function validateCategorySaveUploads(files: File[]) {
+  let total = 0;
+  for (const file of files) {
+    const invalid = validateImageFile(file);
+    if (invalid) return invalid;
+    total += file.size;
+  }
+  if (total > MAX_PRODUCT_UPLOAD_BYTES) {
+    return `All new category and subcategory images together must be ${megabytesLabel(MAX_PRODUCT_UPLOAD_BYTES)} or smaller. Remove or compress some files, then try again.`;
+  }
+  return null;
+}
+
 export function collectProductUploadFiles(formData: FormData) {
   const files: File[] = [];
   for (const value of formData.getAll("images")) {

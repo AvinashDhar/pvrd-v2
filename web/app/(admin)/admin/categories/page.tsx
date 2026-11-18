@@ -36,7 +36,9 @@ export default async function CategoriesPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="font-heading font-semibold tracking-tight">{category.name}</h3>
-                  <p className="text-xs text-muted-foreground">{category.productCount} products · {category.fields.length} fields</p>
+                  <p className="text-xs text-muted-foreground">
+                    {category.productCount} products · {category.subcategories.length} subcategories · {category.fields.length} fields
+                  </p>
                 </div>
                 <StatusBadge value={category.status} />
               </div>

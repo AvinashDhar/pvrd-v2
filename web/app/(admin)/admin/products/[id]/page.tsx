@@ -57,6 +57,7 @@ export default async function ProductDetailPage({
           <div className="grid gap-3 sm:grid-cols-2">
             {[
               ["Category", product.categoryName],
+              ["Subcategory", product.subcategoryName || "—"],
               ["MRP", formatINR(product.mrp)],
               ["Trade price", formatINR(product.price)],
               ["Contractor discount", product.contractorDiscount ? `${product.contractorDiscount}%` : "—"],

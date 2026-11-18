@@ -19,6 +19,7 @@ export type ImageLocation =
   | { folder: "products"; id: string }
   | { folder: "variants"; productId: string; id: string }
   | { folder: "categories"; id: string }
+  | { folder: "subcategories"; id: string }
   | { folder: "brands"; id: string }
   | { folder: "banners"; id: string }
   | { folder: "users"; id: string }
@@ -62,6 +63,8 @@ function objectKey(location: ImageLocation, fileId: string, extension: string) {
       return `products/${safeId(location.productId)}/variants/${safeId(location.id)}/${file}`;
     case "categories":
       return `categories/${safeId(location.id)}/${file}`;
+    case "subcategories":
+      return `subcategories/${safeId(location.id)}/${file}`;
     case "brands":
       return `brands/${safeId(location.id)}/${file}`;
     case "banners":

@@ -64,6 +64,20 @@
       "when": 1794967490257,
       "tag": "0008_product_attributes_text",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1794968759593,
+      "tag": "0009_product_subcategories",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1794975000000,
+      "tag": "0010_subcategory_category_parity",
+      "breakpoints": true
     }
   ]
 }

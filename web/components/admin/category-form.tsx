@@ -7,12 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldListEditor } from "@/components/admin/field-list-editor";
 import { ImageDropzone } from "@/components/admin/image-dropzone";
+import { SubcategorySection, type SubcategoryRow } from "@/components/admin/subcategory-manager";
 import { saveCategory } from "@/lib/actions/categories";
 import { starterFields } from "@/lib/catalogue/fields";
 import type { CategoryField } from "@/lib/categories/field-schemas";
 
 export function CategoryForm({
   category,
+  subcategories = [],
 }: {
   category?: {
     id: string;
@@ -23,6 +25,7 @@ export function CategoryForm({
     fields: CategoryField[];
     variantFields: CategoryField[];
   };
+  subcategories?: SubcategoryRow[];
 }) {
   const [state, action, pending] = useActionState(saveCategory, null);
   const [removed, setRemoved] = useState(false);
@@ -70,8 +73,19 @@ export function CategoryForm({
       <p className="text-xs text-muted-foreground">
         Saved products keep their values. New fields start empty on those products and appear for every product added after this save. A field that already has saved values cannot be removed, and its type can change only when those values still fit.
       </p>
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>{pending ? "Saving…" : category ? "Save category" : "Create category"}</Button>
+
+      <SubcategorySection
+        categoryId={category?.id}
+        parentFields={category?.fields ?? starterFields}
+        parentVariantFields={category?.variantFields ?? []}
+        subcategories={subcategories}
+        state={state}
+      />
+
+      <div className="flex justify-end border-t border-border pt-5">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : category ? "Save category" : "Create category"}
+        </Button>
       </div>
     </ActionForm>
   );

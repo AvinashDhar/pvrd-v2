@@ -118,7 +118,12 @@ export default async function ProductsPage({
                     </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{product.sku || "—"}</td>
-                  <td className="px-4 py-3">{product.categoryName}</td>
+                  <td className="px-4 py-3">
+                    <div>{product.categoryName}</div>
+                    {product.subcategoryName ? (
+                      <div className="text-xs text-muted-foreground">{product.subcategoryName}</div>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3">{product.brandName || "—"}</td>
                   <td className="px-4 py-3">{formatINR(product.mrp)}</td>
                   <td className="px-4 py-3 font-medium">{formatINR(product.price)}</td>

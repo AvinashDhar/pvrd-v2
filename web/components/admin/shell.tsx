@@ -32,6 +32,12 @@ function resolveMeta(pathname: string) {
   if (pathname.startsWith("/admin/products/")) {
     return { title: "Product Details", subtitle: "Dashboard › Products › View" };
   }
+  if (pathname === "/admin/categories/new") {
+    return { title: "Add Category", subtitle: "Dashboard › Categories › Add" };
+  }
+  if (pathname.startsWith("/admin/categories/")) {
+    return { title: "Edit Category", subtitle: "Dashboard › Categories › Edit" };
+  }
   if (pathname === "/admin/banners/new") {
     return { title: "Add Banner", subtitle: "Dashboard › Banners › Add" };
   }

@@ -9,12 +9,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() || undefined;
   const category = url.searchParams.get("category")?.trim() || undefined;
+  const subcategory = url.searchParams.get("subcategory")?.trim() || undefined;
   const sortParam = url.searchParams.get("sort");
   const sort = sortParam === "price-asc" || sortParam === "price-desc" || sortParam === "name" ? sortParam : "relevance";
   const requested = Number(url.searchParams.get("limit"));
   const limit = Number.isFinite(requested) && requested > 0 ? Math.min(Math.floor(requested), 50) : cataloguePageSize;
   const offset = readCursor(url.searchParams.get("cursor"));
-  const page = await pageCatalogue({ q, category, sort, trade: viewer.trade, limit, offset });
+  const page = await pageCatalogue({ q, category, subcategory, sort, trade: viewer.trade, limit, offset });
   const nextOffset = offset + page.items.length;
 
   return NextResponse.json({

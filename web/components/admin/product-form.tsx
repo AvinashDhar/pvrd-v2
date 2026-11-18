@@ -34,6 +34,13 @@ type FormCategory = {
   status: string;
   fields: CategoryField[];
   variantFields: CategoryField[];
+  subcategories: {
+    id: string;
+    name: string;
+    status: string;
+    fields: CategoryField[];
+    variantFields: CategoryField[];
+  }[];
 };
 
 export type FormVariant = {
@@ -54,6 +61,7 @@ export function ProductForm({
   product?: {
     id: string;
     categoryId: string;
+    subcategoryId: string | null;
     brandId: string | null;
     name: string;
     sku: string | null;
@@ -75,6 +83,7 @@ export function ProductForm({
   const variantFocus = useRef<number | "add" | null>(null);
   const [state, action, pending] = useActionState(saveProduct, null);
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? "");
+  const [subcategoryId, setSubcategoryId] = useState(product?.subcategoryId ?? "");
   const [name, setName] = useState(product?.name ?? "");
   const [mrp, setMrp] = useState(product?.mrp ?? "");
   const [price, setPrice] = useState(product?.price ?? "");
@@ -89,7 +98,21 @@ export function ProductForm({
     () => categories.find((item) => item.id === categoryId) ?? categories[0],
     [categories, categoryId],
   );
-  const extraFields = (category?.fields ?? []).filter((field) => !columnKeys.has(field.key));
+  const subcategoryOptions = useMemo(() => {
+    const items = category?.subcategories ?? [];
+    return items.filter(
+      (item) => item.status === "active" || item.id === product?.subcategoryId,
+    );
+  }, [category?.subcategories, product?.subcategoryId]);
+  const activeSubcategory = useMemo(
+    () => subcategoryOptions.find((item) => item.id === subcategoryId) ?? null,
+    [subcategoryId, subcategoryOptions],
+  );
+  const schemaFields = activeSubcategory?.fields?.length ? activeSubcategory.fields : category?.fields ?? [];
+  const schemaVariantFields = activeSubcategory
+    ? activeSubcategory.variantFields
+    : category?.variantFields ?? [];
+  const extraFields = schemaFields.filter((field) => !columnKeys.has(field.key));
   const groups = groupFields(extraFields);
 
   useEffect(() => {
@@ -129,10 +152,10 @@ export function ProductForm({
     return <p className="text-sm text-muted-foreground">Create an active category before adding a product.</p>;
   }
 
-  const brandField = spec(category, "brand");
-  const priceField = spec(category, "price");
-  const contractorField = spec(category, "contractorDiscount");
-  const consumerField = spec(category, "consumerDiscount");
+  const brandField = schemaFields.find((field) => field.key === "brand");
+  const priceField = schemaFields.find((field) => field.key === "price");
+  const contractorField = schemaFields.find((field) => field.key === "contractorDiscount");
+  const consumerField = schemaFields.find((field) => field.key === "consumerDiscount");
 
   function parentValue(key: string) {
     if (key === "name") return name;
@@ -149,7 +172,7 @@ export function ProductForm({
     hasImage: Boolean(variant.imageUrl),
     copy: variant.copy,
     values: Object.fromEntries(
-      category.variantFields
+      schemaVariantFields
         .filter((field) => field.type !== "image")
         .map((field) => [field.key, variant.copy[field.key] ? parentValue(field.key) : variant.values[field.key] ?? ""]),
     ),
@@ -173,12 +196,38 @@ export function ProductForm({
               onChange={(event) => {
                 const next = event.target.value;
                 setCategoryId(next);
+                setSubcategoryId(next === product?.categoryId ? product.subcategoryId ?? "" : "");
                 setVariants(next === product?.categoryId ? product.variants : []);
               }}
               className="pvrd-select h-9 px-3"
             >
               {categories.map((item) => (
                 <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField
+            label="Subcategory"
+            name="subcategoryId"
+            state={state}
+            hint={subcategoryOptions.length ? "Optional. Leave blank to keep the product only under the category." : "Add subcategories on the category page first."}
+          >
+            <select
+              name="subcategoryId"
+              value={subcategoryId}
+              onChange={(event) => {
+                const next = event.target.value;
+                setSubcategoryId(next);
+                setVariants(next === (product?.subcategoryId ?? "") ? product?.variants ?? [] : []);
+              }}
+              className="pvrd-select h-9 px-3"
+              disabled={subcategoryOptions.length === 0}
+            >
+              <option value="">No subcategory</option>
+              {subcategoryOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}{item.status !== "active" ? " (hidden)" : ""}
+                </option>
               ))}
             </select>
           </FormField>
@@ -316,12 +365,12 @@ export function ProductForm({
         <CheckField name="newPrimary">Use the first new upload as the primary image</CheckField>
       </section>
 
-      {category.variantFields.length > 0 ? (
+      {schemaVariantFields.length > 0 ? (
         <section aria-labelledby={`${formId}-variants`} className="pvrd-card space-y-4 p-4 sm:p-5">
           <h2 id={`${formId}-variants`} className="font-heading text-base font-semibold">Variants</h2>
           {variants.map((variant, index) => (
             <article id={`${formId}-variant-${index}`} key={variant.id ?? index} className="grid min-w-0 gap-3 rounded-xl bg-muted/50 p-3 sm:grid-cols-2" aria-label={`Variant ${index + 1}`}>
-              {category.variantFields.map((field) => field.type === "image" ? (
+              {schemaVariantFields.map((field) => field.type === "image" ? (
                 <VariantImageField key={field.key} index={index} field={field} imageUrl={variant.imageUrl} />
               ) : (
                 <div key={field.key} className="grid gap-2">
@@ -394,7 +443,7 @@ export function ProductForm({
 
   function addVariant() {
     variantFocus.current = variants.length;
-    setVariants((current) => [...current, blankVariant(category.variantFields)]);
+    setVariants((current) => [...current, blankVariant(schemaVariantFields)]);
   }
 
   function removeVariant(index: number) {
@@ -405,10 +454,6 @@ export function ProductForm({
   function patchVariant(index: number, patch: Partial<FormVariant>) {
     setVariants((current) => current.map((variant, itemIndex) => (itemIndex === index ? { ...variant, ...patch } : variant)));
   }
-}
-
-function spec(category: FormCategory, key: string) {
-  return category.fields.find((field) => field.key === key);
 }
 
 function withPricingLabel(field: CategoryField) {

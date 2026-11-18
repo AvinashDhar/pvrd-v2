@@ -89,6 +89,31 @@ export const categories = mysqlTable("categories", {
   createdAt: datetime("created_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
 });
 
+/** Optional grouping under a category. Same content shape as categories (image + field schemas), scoped to a parent. */
+export const subcategories = mysqlTable(
+  "subcategories",
+  {
+    id: id(),
+    categoryId: ref("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    slug: varchar("slug", { length: 180 }).notNull(),
+    imageUrl: text("image_url"),
+    imageKey: varchar("image_key", { length: 255 }),
+    description: text("description"),
+    status: visibility().default("active").notNull(),
+    fieldSchema: json("field_schema").notNull(),
+    variantSchema: json("variant_schema").notNull(),
+    sortOrder: int("sort_order").default(0).notNull(),
+    createdAt: datetime("created_at", { mode: "date" }).default(sql`(utc_timestamp())`).notNull(),
+  },
+  (table) => [
+    index("subcategories_category_idx").on(table.categoryId),
+    uniqueIndex("subcategories_category_slug_uidx").on(table.categoryId, table.slug),
+  ],
+);
+
 export const brands = mysqlTable("brands", {
   id: id(),
   name: varchar("name", { length: 160 }).notNull(),
@@ -119,6 +144,8 @@ export const products = mysqlTable(
     categoryId: ref("category_id")
       .notNull()
       .references(() => categories.id),
+    /** Optional; null means the product sits only under its category (existing rows stay valid). */
+    subcategoryId: ref("subcategory_id").references(() => subcategories.id, { onDelete: "set null" }),
     brandId: ref("brand_id").references(() => brands.id),
     name: varchar("name", { length: 255 }).notNull(),
     sku: varchar("sku", { length: 64 }),
@@ -138,6 +165,7 @@ export const products = mysqlTable(
   },
   (table) => [
     index("products_category_idx").on(table.categoryId),
+    index("products_subcategory_idx").on(table.subcategoryId),
     index("products_brand_idx").on(table.brandId),
     index("products_sku_idx").on(table.sku),
     index("products_status_idx").on(table.status),

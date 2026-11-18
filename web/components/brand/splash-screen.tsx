@@ -49,7 +49,10 @@ export function SplashScreen() {
 
   return (
     <div
-      className={cn("splash-screen", phase === "leave" && "splash-screen-leave")}
+      className={cn(
+        "splash-screen pointer-events-none",
+        phase === "leave" && "splash-screen-leave",
+      )}
       role="status"
       aria-live="polite"
       aria-label="Loading OM PVRD"

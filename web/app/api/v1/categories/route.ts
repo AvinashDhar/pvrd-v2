@@ -8,6 +8,10 @@ export async function GET(request: Request) {
     data: categories.map((category) => ({
       ...category,
       image: absoluteUrl(request, category.image),
+      subcategories: category.subcategories.map((item) => ({
+        ...item,
+        image: absoluteUrl(request, item.image),
+      })),
     })),
   });
 }
